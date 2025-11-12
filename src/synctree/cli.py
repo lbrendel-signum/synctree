@@ -3,7 +3,6 @@ Command-line interface for SyncTree
 """
 
 import csv
-import sys
 from pathlib import Path
 from typing import Optional
 
@@ -71,7 +70,7 @@ def add(
     if supplier and supplier.lower() not in ["digikey", "mouser"]:
         typer.echo(f"Error: Invalid supplier '{supplier}'. Must be 'digikey' or 'mouser'", err=True)
         raise typer.Exit(1)
-    
+
     try:
         # Load configuration
         config = Config.from_env()
@@ -113,15 +112,15 @@ def add(
             raise typer.Exit(1)
 
         # Display results
-        typer.echo(f"\n✅ Successfully synced part to InvenTree!")
-        typer.echo(f"\n📦 Part Information:")
+        typer.echo("\n✅ Successfully synced part to InvenTree!")
+        typer.echo("\n📦 Part Information:")
         typer.echo(f"   Manufacturer: {result['manufacturer']}")
         typer.echo(f"   MPN: {result['manufacturer_part_number']}")
         typer.echo(f"   Supplier: {result['supplier']}")
         typer.echo(f"   SKU: {result['supplier_part_number']}")
 
         if verbose:
-            typer.echo(f"\n📝 Details:")
+            typer.echo("\n📝 Details:")
             typer.echo(f"   Description: {result['description']}")
             typer.echo(f"   InvenTree Part ID: {result['inventree_part_id']}")
             typer.echo(f"   InvenTree Supplier Part ID: {result['inventree_supplier_part_id']}")
@@ -201,20 +200,20 @@ def bom(
         assembly_result = service.create_assembly_part(part_number)
 
         if not assembly_result:
-            typer.echo(f"❌ Failed to create assembly part", err=True)
+            typer.echo("❌ Failed to create assembly part", err=True)
             raise typer.Exit(1)
 
         typer.echo(f"✅ Created assembly part (ID: {assembly_result['inventree_part_id']})")
 
         # Read BOM file
         typer.echo(f"\nReading BOM file: {bom_file}")
-        
+
         # Determine delimiter based on file extension
         delimiter = '\t' if bom_file.suffix.lower() == '.tsv' else ','
-        
+
         bom_items = []
         skipped_items = []
-        
+
         with open(bom_file, 'r', encoding='utf-8') as f:
             reader = csv.DictReader(f, delimiter=delimiter)
             for row_num, row in enumerate(reader, start=2):  # Start at 2 (1 for header)
@@ -224,18 +223,18 @@ def bom(
                 mpn = row.get('MPN') or row.get('Manufacturer Part Number', '').strip()
                 qty = row.get('Qty') or row.get('Quantity', '1').strip()
                 designators = row.get('Designators', '').strip()
-                
+
                 # Skip if no MPN or SPN
                 if not mpn and not spn:
                     skipped_items.append(f"Row {row_num}: No MPN or SPN")
                     continue
-                
+
                 # Parse quantity
                 try:
                     quantity = float(qty) if qty else 1.0
                 except ValueError:
                     quantity = 1.0
-                
+
                 bom_items.append({
                     'supplier': supplier,
                     'spn': spn,
@@ -254,27 +253,27 @@ def bom(
                 typer.echo(f"  ... and {len(skipped_items) - 5} more")
 
         # Process each BOM item
-        typer.echo(f"\nProcessing BOM items...")
+        typer.echo("\nProcessing BOM items...")
         success_count = 0
         error_count = 0
-        
+
         for idx, item in enumerate(bom_items, start=1):
             try:
                 # Try to find/sync the part
                 part_number_to_sync = item['spn'] if item['spn'] else item['mpn']
                 supplier_name = item['supplier'].lower() if item['supplier'] else None
-                
+
                 if verbose:
                     typer.echo(f"\n[{idx}/{len(bom_items)}] Processing: {part_number_to_sync}")
-                
+
                 # Sync the component part
                 result = service.sync_part(part_number_to_sync, supplier_name)
-                
+
                 if not result:
                     typer.echo(f"  ❌ Part not found: {part_number_to_sync}", err=True)
                     error_count += 1
                     continue
-                
+
                 # Add to BOM
                 bom_result = service.add_bom_item(
                     assembly_part_id=assembly_result['inventree_part_id'],
@@ -282,7 +281,7 @@ def bom(
                     quantity=item['quantity'],
                     reference=item['designators']
                 )
-                
+
                 if bom_result:
                     if verbose:
                         typer.echo(f"  ✅ Added to BOM: {result['manufacturer_part_number']}")
@@ -292,7 +291,7 @@ def bom(
                 else:
                     typer.echo(f"  ⚠️  Failed to add to BOM: {part_number_to_sync}", err=True)
                     error_count += 1
-                    
+
             except Exception as e:
                 typer.echo(f"  ❌ Error processing item: {e}", err=True)
                 if verbose:
@@ -301,8 +300,8 @@ def bom(
                 error_count += 1
 
         # Summary
-        typer.echo(f"\n\n✅ BOM processing complete!")
-        typer.echo(f"\n📊 Summary:")
+        typer.echo("\n\n✅ BOM processing complete!")
+        typer.echo("\n📊 Summary:")
         typer.echo(f"   Assembly Part: {part_number}")
         typer.echo(f"   InvenTree Part ID: {assembly_result['inventree_part_id']}")
         typer.echo(f"   Successfully added: {success_count} items")
