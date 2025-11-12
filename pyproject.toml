@@ -11,13 +11,13 @@ dependencies = [
     "inventree>=0.13.0",
     "requests>=2.31.0",
     "python-dotenv>=1.0.0",
-    "click>=8.1.0",
+    "typer>=0.9.0",
     "digikey-api",
     "mouser",
 ]
 
 [project.scripts]
-synctree = "synctree.cli:main"
+synctree = "synctree.cli:app"
 
 [build-system]
 requires = ["uv_build>=0.9.8,<0.10.0"]

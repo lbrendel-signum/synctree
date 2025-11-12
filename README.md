@@ -182,7 +182,7 @@ synctree/
 - `digikey-api` - Custom Digikey API client (from lbrendel-signum/digikey-api)
 - `mouser` - Custom Mouser API client (from lbrendel-signum/mouser-api)
 - `python-dotenv` - Environment variable management
-- `click` - CLI framework
+- `typer` - CLI framework
 - `requests` - HTTP library
 
 ## Troubleshooting
