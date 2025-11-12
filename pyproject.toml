@@ -1,0 +1,28 @@
+[project]
+name = "synctree"
+version = "0.1.0"
+description = "Syncing supplier part information to Inventree"
+readme = "README.md"
+authors = [
+    { name = "copilot-swe-agent[bot]", email = "198982749+Copilot@users.noreply.github.com" }
+]
+requires-python = ">=3.12"
+dependencies = [
+    "inventree>=0.13.0",
+    "requests>=2.31.0",
+    "python-dotenv>=1.0.0",
+    "click>=8.1.0",
+    "digikey-api",
+    "mouser",
+]
+
+[project.scripts]
+synctree = "synctree.cli:main"
+
+[build-system]
+requires = ["uv_build>=0.9.8,<0.10.0"]
+build-backend = "uv_build"
+
+[tool.uv.sources]
+digikey-api = { git = "https://github.com/lbrendel-signum/digikey-api.git" }
+mouser = { git = "https://github.com/lbrendel-signum/mouser-api.git" }
