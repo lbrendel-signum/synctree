@@ -97,17 +97,35 @@ Check configuration status:
 synctree config
 ```
 
-Sync a part by part number:
+Add a part by part number:
 ```bash
 # Will search all configured suppliers
-synctree sync 296-6501-1-ND
+synctree add 296-6501-1-ND
 
 # Specify a particular supplier
-synctree sync CRCW080510K0FKEA --supplier digikey
+synctree add CRCW080510K0FKEA --supplier digikey
 
 # Verbose output with more details
-synctree sync STM32F103C8T6 --verbose
+synctree add STM32F103C8T6 --verbose
 ```
+
+Create an assembly with BOM from a file:
+```bash
+# Create assembly and populate BOM from TSV file
+synctree bom MY-ASSEMBLY-001 total_bom.tsv
+
+# Create assembly and populate BOM from CSV file with verbose output
+synctree bom MY-PCB-REV2 bom.csv --verbose
+```
+
+The BOM file should be in TSV (tab-separated) or CSV (comma-separated) format with the following columns:
+- **Supplier** (or Supplier Name) - Name of the supplier (e.g., "Digikey", "Mouser")
+- **SPN** (or SKU) - Supplier part number
+- **MPN** - Manufacturer part number
+- **Qty** (or Quantity) - Quantity needed (optional, defaults to 1)
+- **Designators** - Reference designators (optional, e.g., "R1, R2, R3")
+
+Lines without both MPN and SPN will be skipped automatically.
 
 ### Development Usage
 
@@ -120,7 +138,7 @@ source .venv/bin/activate  # Linux/Mac
 .venv\Scripts\activate  # Windows
 
 # Run synctree
-synctree sync 296-6501-1-ND
+synctree add 296-6501-1-ND
 ```
 
 ### Python API
@@ -149,7 +167,9 @@ else:
 
 ## How It Works
 
-When you provide a part number, SyncTree:
+### Adding Individual Parts
+
+When you provide a part number using the `add` command, SyncTree:
 
 1. **Searches Supplier APIs**: Queries configured supplier APIs (Digikey/Mouser) for the part
 2. **Extracts Information**: Gets manufacturer name, MPN, description, datasheet, etc.
@@ -158,7 +178,20 @@ When you provide a part number, SyncTree:
 5. **Creates/Updates Part**: Creates the part with manufacturer information
 6. **Links Supplier Part**: Creates the supplier part relationship with SKU and pricing
 
-All operations are idempotent - running the same sync multiple times is safe.
+### Creating Assemblies with BOM
+
+When you use the `bom` command with a TSV/CSV file, SyncTree:
+
+1. **Creates Assembly Part**: Creates a new assembly part in InvenTree with the given part number
+2. **Reads BOM File**: Parses the TSV or CSV file to extract component information
+3. **Syncs Each Component**: For each line item with MPN or SPN:
+   - Searches supplier APIs for the component
+   - Creates/updates the component part in InvenTree
+   - Adds manufacturer and supplier information
+4. **Builds BOM**: Adds each component to the assembly's bill of materials with quantities and designators
+5. **Skips Invalid Lines**: Automatically skips any lines without both MPN and SPN
+
+All operations are idempotent - running the same command multiple times is safe.
 
 ## Project Structure
 

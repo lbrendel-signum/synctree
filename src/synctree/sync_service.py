@@ -95,3 +95,36 @@ class SyncService:
             "inventree_supplier_part_id": supplier_part.pk,
             "description": part_info.description
         }
+    
+    def create_assembly_part(self, part_number: str) -> Optional[dict]:
+        """
+        Create an assembly part in InvenTree
+        
+        Args:
+            part_number: Part number for the assembly
+            
+        Returns:
+            Dictionary with part info or None if failed
+        """
+        return self.inventree.create_assembly_part(part_number)
+    
+    def add_bom_item(
+        self,
+        assembly_part_id: int,
+        sub_part_id: int,
+        quantity: float,
+        reference: str = ""
+    ) -> Optional[dict]:
+        """
+        Add a BOM item to an assembly
+        
+        Args:
+            assembly_part_id: ID of the assembly part
+            sub_part_id: ID of the sub-part to add
+            quantity: Quantity required
+            reference: Reference designators (optional)
+            
+        Returns:
+            Dictionary with BOM item info or None if failed
+        """
+        return self.inventree.add_bom_item(assembly_part_id, sub_part_id, quantity, reference)

@@ -19,7 +19,7 @@ from inventree.company import (
     SupplierPart,
     SupplierPriceBreak,
 )
-from inventree.part import Part, PartCategory
+from inventree.part import Part, PartCategory, BomItem
 
 from .config import InvenTreeConfig
 from .suppliers import PartInfo
@@ -317,3 +317,103 @@ class InvenTreeClient:
         supplier_part = self.create_supplier_part(part, mpart, part_info)
 
         return part, supplier_part
+
+    def create_assembly_part(self, part_number: str) -> Optional[dict]:
+        """
+        Create an assembly part in InvenTree
+        
+        Args:
+            part_number: Part number for the assembly
+            
+        Returns:
+            Dictionary with part info or None if failed
+        """
+        try:
+            # Check if part already exists
+            existing_parts = Part.list(self.api, name=part_number)
+            if existing_parts and part_number in [p.name for p in existing_parts]:
+                part = next(p for p in existing_parts if p.name == part_number)
+                return {
+                    "inventree_part_id": part.pk,
+                    "name": part.name,
+                    "description": part.description,
+                    "exists": True
+                }
+            
+            # Create new assembly part
+            part_data = {
+                "name": part_number,
+                "description": f"Assembly: {part_number}",
+                "component": False,
+                "assembly": True,
+                "purchaseable": False,
+                "active": True,
+            }
+            
+            part = Part.create(self.api, data=part_data)
+            
+            return {
+                "inventree_part_id": part.pk,
+                "name": part.name,
+                "description": part.description,
+                "exists": False
+            }
+        except Exception as e:
+            print(f"Error creating assembly part: {e}")
+            return None
+
+    def add_bom_item(
+        self,
+        assembly_part_id: int,
+        sub_part_id: int,
+        quantity: float,
+        reference: str = ""
+    ) -> Optional[dict]:
+        """
+        Add a BOM item to an assembly
+        
+        Args:
+            assembly_part_id: ID of the assembly part
+            sub_part_id: ID of the sub-part to add
+            quantity: Quantity required
+            reference: Reference designators (optional)
+            
+        Returns:
+            Dictionary with BOM item info or None if failed
+        """
+        try:
+            # Check if BOM item already exists
+            existing = BomItem.list(
+                self.api,
+                part=assembly_part_id,
+                sub_part=sub_part_id
+            )
+            
+            if existing:
+                # Update existing BOM item
+                bom_item = existing[0]
+                # Optionally update quantity or reference
+                return {
+                    "bom_item_id": bom_item.pk,
+                    "exists": True
+                }
+            
+            # Create new BOM item
+            bom_data = {
+                "part": assembly_part_id,
+                "sub_part": sub_part_id,
+                "quantity": quantity,
+            }
+            
+            if reference:
+                bom_data["reference"] = reference
+            
+            bom_item = BomItem.create(self.api, data=bom_data)
+            
+            return {
+                "bom_item_id": bom_item.pk,
+                "exists": False
+            }
+        except Exception as e:
+            print(f"Error adding BOM item: {e}")
+            return None
