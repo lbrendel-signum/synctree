@@ -105,6 +105,10 @@ class DigikeyClient(SupplierClient):
         if hasattr(part, "unit_price") and part.unit_price:
             pricing[1] = part.unit_price
 
+        datasheet = part.datasheet_url if hasattr(part, 'datasheet_url') else None
+        if datasheet:
+            datasheet = f"https://{datasheet[2:]}" if datasheet and datasheet.startswith("//") else datasheet
+
         return PartInfo(
             name=part.description.product_description if hasattr(part, 'description') else "",
             manufacturer_name=part.manufacturer.name if hasattr(part, 'manufacturer') else "",
@@ -112,7 +116,7 @@ class DigikeyClient(SupplierClient):
             supplier_name="Digikey",
             supplier_part_number=part.product_variations[0].digi_key_product_number if hasattr(part, 'product_variations') and part.product_variations else "",
             description=part.description.detailed_description if hasattr(part, 'description') else "",
-            datasheet_url=part.datasheet_url if hasattr(part, 'datasheet_url') else None,
+            datasheet_url=datasheet,
             image_url=part.photo_url if hasattr(part, 'photo_url') else None,
             category=part.category.name.split(",")[-1].strip() if hasattr(part, 'category') else None,
             packaging=part.packaging.value if hasattr(part, 'packaging') else None,

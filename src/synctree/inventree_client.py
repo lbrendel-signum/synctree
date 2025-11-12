@@ -99,7 +99,7 @@ class ImageManager:
 
         if not response.status == 200:
             print(f"ERROR: Request code is {response.status}")
-            return -1
+            return None
 
         filename = cls._filename_generator()
 
@@ -200,7 +200,7 @@ class InvenTreeClient:
             self.api, name=part_info.name, category=category.pk if category else None
         )
 
-        if parts:
+        if parts and (part_info.name in [p.name for p in parts]):
             return parts[0]
 
         # Create new part
@@ -293,7 +293,7 @@ class InvenTreeClient:
             "manufacturer_part": mpart.pk,
             "MPN": part_info.manufacturer_part_number,
             "description": part_info.description,
-            "link": part_info.datasheet_url or "",
+            "link": part_info.url or "",
             "note": f"Synced from {part_info.supplier_name}",
         }
 
