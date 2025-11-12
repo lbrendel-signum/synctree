@@ -33,26 +33,26 @@ def main():
     is_flag=True,
     help="Show detailed output"
 )
-def sync(part_number: str, supplier: Optional[str], verbose: bool):
+def add(part_number: str, supplier: Optional[str], verbose: bool):
     """
-    Sync a part to InvenTree by part number
-    
+    Add a part to InvenTree by part number
+
     PART_NUMBER can be either a manufacturer part number or a supplier part number.
-    The tool will search configured suppliers and sync the part to InvenTree,
+    The tool will search configured suppliers and add the part to InvenTree,
     including manufacturer and supplier information.
-    
+
     Examples:
-    
-        synctree sync 296-6501-1-ND
-        
-        synctree sync CRCW080510K0FKEA --supplier digikey
-        
-        synctree sync STM32F103C8T6 --verbose
+
+        synctree add 296-6501-1-ND
+
+        synctree add CRCW080510K0FKEA --supplier digikey
+
+        synctree add STM32F103C8T6 --verbose
     """
     try:
         # Load configuration
         config = Config.from_env()
-        
+
         # Validate configuration
         try:
             config.validate()
@@ -68,18 +68,18 @@ def sync(part_number: str, supplier: Optional[str], verbose: bool):
             click.echo("  Mouser:", err=True)
             click.echo("    - MOUSER_PART_API_KEY", err=True)
             sys.exit(1)
-        
+
         # Create sync service
         service = SyncService(config)
-        
+
         # Display info
         click.echo(f"Searching for part: {part_number}")
         if supplier:
             click.echo(f"Using supplier: {supplier}")
-        
+
         # Sync the part
         result = service.sync_part(part_number, supplier)
-        
+
         if not result:
             click.echo(f"❌ Part '{part_number}' not found", err=True)
             if supplier:
@@ -88,7 +88,7 @@ def sync(part_number: str, supplier: Optional[str], verbose: bool):
                 configured = ", ".join(service.suppliers.keys())
                 click.echo(f"   Searched in: {configured}", err=True)
             sys.exit(1)
-        
+
         # Display results
         click.echo(f"\n✅ Successfully synced part to InvenTree!")
         click.echo(f"\n📦 Part Information:")
@@ -96,13 +96,13 @@ def sync(part_number: str, supplier: Optional[str], verbose: bool):
         click.echo(f"   MPN: {result['manufacturer_part_number']}")
         click.echo(f"   Supplier: {result['supplier']}")
         click.echo(f"   SKU: {result['supplier_part_number']}")
-        
+
         if verbose:
             click.echo(f"\n📝 Details:")
             click.echo(f"   Description: {result['description']}")
             click.echo(f"   InvenTree Part ID: {result['inventree_part_id']}")
             click.echo(f"   InvenTree Supplier Part ID: {result['inventree_supplier_part_id']}")
-        
+
     except KeyboardInterrupt:
         click.echo("\n\nOperation cancelled by user", err=True)
         sys.exit(130)
@@ -120,9 +120,9 @@ def config():
     """Show current configuration status"""
     try:
         cfg = Config.from_env()
-        
+
         click.echo("Configuration Status:\n")
-        
+
         # InvenTree
         if cfg.inventree:
             click.echo("✅ InvenTree:")
@@ -131,7 +131,7 @@ def config():
         else:
             click.echo("❌ InvenTree: Not configured")
             click.echo("   Set: INVENTREE_SERVER_URL, INVENTREE_TOKEN")
-        
+
         # Digikey
         click.echo()
         if cfg.digikey:
@@ -142,7 +142,7 @@ def config():
         else:
             click.echo("❌ Digikey: Not configured")
             click.echo("   Set: DIGIKEY_CLIENT_ID, DIGIKEY_CLIENT_SECRET")
-        
+
         # Mouser
         click.echo()
         if cfg.mouser:
@@ -151,7 +151,7 @@ def config():
         else:
             click.echo("❌ Mouser: Not configured")
             click.echo("   Set: MOUSER_PART_API_KEY")
-        
+
     except Exception as e:
         click.echo(f"Error loading configuration: {e}", err=True)
         sys.exit(1)

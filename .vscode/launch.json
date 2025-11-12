@@ -12,10 +12,10 @@
             "console": "integratedTerminal",
             "justMyCode": false,
             "args": [
-                "sync",
+                "add",
                 "-s",
                 "digikey",
-                "66399-3"
+                "1943820000"
             ]
         }
     ]
