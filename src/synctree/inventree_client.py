@@ -2,14 +2,116 @@
 InvenTree API client wrapper
 """
 
+from datetime import datetime
+import http.client
+import os
+from pathlib import Path
+import random
+import string
 from typing import Optional
+from urllib.parse import quote, urlparse
 
 from inventree.api import InvenTreeAPI
-from inventree.company import Company, SupplierPart, ManufacturerPart, ManufacturerPartParameter
+from inventree.company import (
+    Company,
+    ManufacturerPart,
+    ManufacturerPartParameter,
+    SupplierPart,
+    SupplierPriceBreak,
+)
 from inventree.part import Part, PartCategory
 
 from .config import InvenTreeConfig
 from .suppliers import PartInfo
+
+
+class ImageManager:
+    cache_path: Path = Path(__file__).resolve().parent / "cache"
+
+    @classmethod
+    def get_image(cls, url: str) -> str:
+        """
+        Gets an image given an url
+        returns a filepath
+        """
+        if not cls.cache_active():
+            print("Cache not active creating...")
+            cls._create_cache()
+
+        path = cls._download_image(url)
+        return path
+
+    @classmethod
+    def cache_active(cls):
+        print(os.path.exists(cls.cache_path))
+        return os.path.exists(cls.cache_path)
+
+    @classmethod
+    def _create_cache(cls):
+        try:
+            print(f"Making cache at {cls.cache_path}")
+            os.mkdir(cls.cache_path)
+        except:
+            print("Error making cache")
+
+    @classmethod
+    def clean_cache(cls):
+        if cls.cache_active:
+            for f in Path(cls.cache_path).glob("*"):
+                f.unlink()
+
+    def _filename_generator(size=6) -> str:
+        return (
+            "".join(
+                random.choice(string.ascii_lowercase + string.digits)
+                for _ in range(size)
+            )
+            + ".jpg"
+        )
+
+    @classmethod
+    def _download_image(cls, url: str) -> str:
+        print(f"Trying URL {url}")
+
+        escaped_url = quote(url, safe=":/")
+
+        parsed_url = urlparse(escaped_url)
+
+        # Extract protocol, server host, and path
+        protocol = parsed_url.scheme
+        server_host = parsed_url.netloc
+        path = parsed_url.path
+
+        # Create an HTTP connection to the server based on the protocol
+        if protocol == "http":
+            conn = http.client.HTTPConnection(server_host)
+        elif protocol == "https":
+            conn = http.client.HTTPSConnection(server_host)
+        else:
+            print("Unsupported protocol:", protocol)
+            exit(1)
+
+        # Send an HTTP GET request with custom headers
+        conn.request("GET", path)
+
+        # Get the response
+        response = conn.getresponse()
+
+        if not response.status == 200:
+            print(f"ERROR: Request code is {response.status}")
+            return -1
+
+        filename = cls._filename_generator()
+
+        filepath = cls.cache_path / filename
+        with open(filepath, "wb") as handler:
+            while True:
+                chunk = response.read(1024)
+                if not chunk:
+                    break
+                handler.write(chunk)
+
+        return str(filepath)
 
 
 class InvenTreeClient:
@@ -84,11 +186,6 @@ class InvenTreeClient:
 
     def get_or_create_part(self, part_info: PartInfo) -> Part:
         """Get or create a part in InvenTree"""
-        # Search for existing part by name
-        parts = Part.list(self.api, name=part_info.name)
-
-        if parts:
-            return parts[0]
 
         # Get or create manufacturer
         manufacturer = self.get_or_create_manufacturer(part_info.manufacturer_name)
@@ -98,6 +195,14 @@ class InvenTreeClient:
         if part_info.category:
             category = self.get_or_create_category(part_info.category)
 
+        # Search for existing part by name
+        parts = Part.list(
+            self.api, name=part_info.name, category=category.pk if category else None
+        )
+
+        if parts:
+            return parts[0]
+
         # Create new part
         part_data = {
             "name": part_info.name,
@@ -105,7 +210,6 @@ class InvenTreeClient:
             "component": True,
             "purchaseable": True,
             "active": True,
-            # TODO: Add parameters
         }
 
         if category:
@@ -113,10 +217,16 @@ class InvenTreeClient:
 
         part = Part.create(self.api, data=part_data)
 
+        if part_info.image_url:
+            image_path = ImageManager.get_image(part_info.image_url)
+            if image_path:
+                part.uploadImage(image_path)
 
         return part
 
-    def create_manufacturer_part(self, part: Part, part_info: PartInfo) -> ManufacturerPart:
+    def create_manufacturer_part(
+        self, part: Part, part_info: PartInfo
+    ) -> ManufacturerPart:
         """Create a manufacturer part link"""
         # Get or create manufacturer
         manufacturer = self.get_or_create_manufacturer(part_info.manufacturer_name)
@@ -156,7 +266,9 @@ class InvenTreeClient:
 
         return mpart
 
-    def create_supplier_part(self, part: Part, part_info: PartInfo) -> SupplierPart:
+    def create_supplier_part(
+        self, part: Part, mpart: ManufacturerPart, part_info: PartInfo
+    ) -> SupplierPart:
         """Create a supplier part link"""
         # Get or create supplier
         supplier = self.get_or_create_supplier(part_info.supplier_name)
@@ -177,6 +289,8 @@ class InvenTreeClient:
             "part": part.pk,
             "supplier": supplier.pk,
             "SKU": part_info.supplier_part_number,
+            "manufacturer_part": mpart.pk,
+            "MPN": part_info.manufacturer_part_number,
             "description": part_info.description,
             "link": part_info.datasheet_url or "",
             "note": f"Synced from {part_info.supplier_name}",
@@ -186,7 +300,22 @@ class InvenTreeClient:
         if part_info.packaging:
             supplier_part_data["packaging"] = part_info.packaging
 
-        return SupplierPart.create(self.api, data=supplier_part_data)
+        spart = SupplierPart.create(self.api, data=supplier_part_data)
+
+        if part_info.pricing:
+            for qty, price in part_info.pricing.items():
+                SupplierPriceBreak.create(
+                    self.api,
+                    data={
+                        "part": spart.pk,
+                        "quantity": qty,
+                        "price": price,
+                        "supplier": supplier.pk,
+                        "updated": datetime.now().isoformat(),
+                    },
+                )
+
+        return spart
 
     def sync_part(self, part_info: PartInfo) -> tuple[Part, SupplierPart]:
         """
@@ -205,9 +334,9 @@ class InvenTreeClient:
         part = self.get_or_create_part(part_info)
 
         # Get or create manufacturer part link
-        self.create_manufacturer_part(part, part_info)
+        mpart = self.create_manufacturer_part(part, part_info)
 
         # Create supplier part link
-        supplier_part = self.create_supplier_part(part, part_info)
+        supplier_part = self.create_supplier_part(part, mpart, part_info)
 
         return part, supplier_part

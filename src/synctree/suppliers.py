@@ -8,6 +8,7 @@ from dataclasses import dataclass
 from typing import Optional
 
 import digikey
+from digikey.v4.productinformation import ProductPricing
 from digikey.v4.productinformation import KeywordRequest
 from mouser.api import MouserPartSearchRequest
 
@@ -75,6 +76,7 @@ class DigikeyClient(SupplierClient):
                 search_request = KeywordRequest(keywords=part_number, limit=1, offset=0)
                 result = digikey.keyword_search(body=search_request)
 
+
                 if result and hasattr(result, 'products') and len(result.products) > 0:
                     # Get detailed info for the first result
                     first_product = result.products[0]
@@ -95,8 +97,8 @@ class DigikeyClient(SupplierClient):
             for param in part.parameters:
                 if hasattr(param, 'parameter_text') and hasattr(param, 'value_text'):
                     parameters[param.parameter_text] = param.value_text
-        if hasattr(part, 'standard_pricing') and part.standard_pricing:
-            for price in part.standard_pricing:
+        if hasattr(part, 'product_variations') and part.product_variations:
+            for price in part.product_variations[0].standard_pricing:
                 if hasattr(price, 'break_quantity') and hasattr(price, 'unit_price'):
                     pricing[price.break_quantity] = price.unit_price
         if hasattr(part, "unit_price") and part.unit_price:
