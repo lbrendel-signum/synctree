@@ -43,7 +43,6 @@ class ImageManager:
 
     @classmethod
     def cache_active(cls):
-        print(os.path.exists(cls.cache_path))
         return os.path.exists(cls.cache_path)
 
     @classmethod
