@@ -201,7 +201,7 @@ class InvenTreeClient:
         )
 
         if parts and (part_info.name in [p.name for p in parts]):
-            return parts[0]
+            return next(p for p in parts if p.name == part_info.name)
 
         # Create new part
         part_data = {
