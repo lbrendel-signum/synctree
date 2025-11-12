@@ -1,0 +1,42 @@
+Id	Description	Qty	Unit	Designators	P/N	Manufacturer	MPN	Supplier	SPN
+1	Back Shield, CONN BACKSH W/CLMP SZ11 5/8-24	1		BOX_J3		TE Connectivity AMP Connectors	1-206062-4	Digikey	A32515-ND
+2	Back Shield, CONN BACKSH W/CLMP SZ13 3/4-20	1		BOX_J2		TE Connectivity AMP Connectors	206966-7	Digikey	A32519-ND
+3	Back Shield, CONN CAB CLMP SZ23 BLK 1 3/8-18	1		BOX_J1		TE Connectivity AMP Connectors	206138-8	Digikey	A32517-ND
+4	"CHASSIS STEEL BLACK 12""L X 8""W"	1				Hammond Manufacturing	1441-22BK3	Digikey	HM2729-ND
+5	"COVER FOR CHASSIS 12X8"" BLK"	1				Hammond Manufacturing	1431-22BK3	Digikey	HM1490-ND
+6	Cable, 10 wires	0	m	TC2050-IDC-NL		Tag-Connect	TC2050-IDC-NL		
+7	Cable, 11 x 20 AWG	1	ft	W5					
+8	Cable, 2 x 20 AWG	0	m	W11					
+9	Cable, 23 x 20 AWG	1	ft	W1					
+10	Cable, 3 x 20 AWG	1	m	W10, W7					
+11	Cable, 4 x 20 AWG	2	ft	W6, W8					
+12	Cable, 6 wires	18	in	STLINK_TC2030, ESP_TC2030		Tag-Connect	TC2030-IDC		
+13	Cable, 7 x 20 AWG	1	ft	W4					
+14	Cable, 9 x 20 AWG	2	ft	W9, W3, W2					
+15	Connector, ARM20-CTX 20-Pin to TC2030-IDC Adapter for Cortex	1		BOX_STLINK		Tag-Connect	ARM20-CTX		
+16	Connector, Antenna, 2IN1 COMBO LTE/GNSS 300MM ADHSV, 2 pins	1		BOX_ANTENNA	70-04371	Quectel	YB0031AA	Digikey	2958-YB0031AA-ND
+17	Connector, Block, TERM BLOCK PLUG 2POS STR 3.5MM, 2 pins	1		BB_J7		Weidmüller	1615670000	Digikey	281-1054-ND
+18	Connector, Block, TERM BLOCK PLUG 36POS STR 3.5MM, 36 pins	1		BB_J2		Phoenix Contact	1790454	DigiKey	277-8794-ND
+19	Connector, Block, TERM BLOCK PLUG 3POS STR 5.08MM, 3 pins	1		BB_J6		Weidmüller	1943820000	Digikey	281-2597-ND
+20	Connector, Block, TERM BLOCK PLUG 4POS STR 3.5MM, 4 pins	1		BB_J10		Weidmüller	1615690000	Digikey	281-1056-ND
+21	Connector, CPC, CONN PLG HSG FMALE 37POS INLINE, 37 pins	1		BOX_J1		TE Connectivity AMP Connectors	206150-1	Digikey	A1306-ND
+22	Connector, CPC, CONN PLUG HSG FMALE 4POS INLINE, 3 pins	1		BOX_J3	95-04396	TE Connectivity AMP Connectors	206060-1	Digikey	A1300-ND
+23	Connector, CPC, CONN PLUG HSG FMALE 9POS INLINE, 9 pins	1		BOX_J2	95-04395	TE Connectivity AMP Connectors	206708-1	Digikey	A1302-ND
+24	Connector, IDC, CONN HEADER 10POS IDC GOLD, 10 pins	1		BOX_PRECHARGE		Assmann WSW Components	AWH 10G-E202-IDC	Digikey	HHPL10H-ND
+25	Connector, RJ-11, CONN MOD PLUG 6P6C UNSHIELDED, 6 pins	1		BB_J3		Assmann WSW Components	A-MO 6/6-F50	Digikey	123-A-MO6/6-F50-ND
+26	Connector, USB, USB AM TO USB C, USB 2.0 - 150MM	1		BB_J9		Cvilux USA	DH-20M50054	Digikey	2987-DH-20M50054-ND
+27	LEVELING MOUNT NYLON	4				Davies Molding, LLC	4000-C	Digikey	4000-C-ND
+28	Panel Mount, CONN RCPT HSNG MALE 16POS PNL MT	1		TEST_9485		TE Connectivity AMP Connectors	206036-1	Digikey	A1305-ND
+29	Panel Mount, CONN RCPT HSNG MALE 19POS PNL MT	1		TEST_9264		TE Connectivity AMP Connectors	211771-1	Digikey	A1637-ND
+30	Panel Mount, CONN RCPT HSNG MALE 37POS PNL MT	2		TEST_9403, BOX_J1		TE Connectivity AMP Connectors	206151-1	Digikey	A1307-ND
+31	Panel Mount, CONN RCPT HSNG MALE 4POS PNL MNT	2		BOX_J3, TEST_SUPPLY		TE Connectivity AMP Connectors	206061-1	Digikey	A1301-ND
+32	Panel Mount, CONN RCPT HSNG MALE 9POS PNL MNT	4		TEST_9221, TEST_RS485, TEST_RS232, BOX_J2		TE Connectivity AMP Connectors	206705-1	Digikey	A1303-ND
+33	Pins, CONN PIN 20-24AWG GOLD CRIMP	80		TEST_9221, TEST_9403, TEST_RS232, TEST_9264, BOX_J2, TEST_SUPPLY, BOX_J3, TEST_RS485, TEST_9485, BOX_J1		TE Connectivity AMP Connectors	66103-3	Digikey	A25107-ND
+34	Programmer, ESP32 Programmer	1		BOX_ESP		Espressif	ESP-PROG	Digikey	1965-ESP-PROG-ND
+35	Programmer, ST-LINK V2	1		BOX_STLINK		STMicroelectronics	ST-LINK/V2	Digikey	497-10484-ND
+36	Resistor, 250 Ohm chassis mount	4		W4		Stackpole Electronics Inc.	KAL25FB250R	Digikey	KAL25FB250R-ND
+37	Resistor, 4.7kOhm chassis mount	5		W5		TE Connectivity Passive Produce	HSA254K7J	Digikey	A102144-ND
+38	"Rivet, BLIND RIVET 0.125"" STEEL NATURAL"	18		W4, W5		B&F Fastener Supply	SB4-3	Digikey	H267-ND
+39	Screw, Machine with Washer	40		TEST_9221, TEST_9403, TEST_RS232, TEST_9264, BOX_J2, TEST_SUPPLY, BOX_J3, TEST_RS485, TEST_9485, BOX_J1					
+40	Sockets, CONN SOCKET 20-24AWG GOLD CRIMP	35		BOX_J3, BOX_J1, BOX_J2		TE Connectivity AMP Connectors	66399-3	Digikey	A25122-ND
+41	USB, USB AM TO USB MICRO, USB 2.0 - 1	1		BOX_ESP		Cvilux USA	DH-20M50055	Digikey	2987-DH-20M50055-ND
