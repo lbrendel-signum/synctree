@@ -118,7 +118,7 @@ class DigikeyClient(SupplierClient):
             description=part.description.detailed_description if hasattr(part, 'description') else "",
             datasheet_url=datasheet,
             image_url=part.photo_url if hasattr(part, 'photo_url') else None,
-            category=part.category.name.split(",")[-1].strip() if hasattr(part, 'category') else None,
+            category=part.category.child_categories[0].name if hasattr(part, 'category') else None,
             packaging=part.packaging.value if hasattr(part, 'packaging') else None,
             pricing=pricing if pricing else None,
             url=part.product_url if hasattr(part, 'product_url') else None,

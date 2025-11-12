@@ -3,7 +3,7 @@ InvenTree API client wrapper
 """
 
 from datetime import datetime
-import http.client
+import requests
 import os
 from pathlib import Path
 import random
@@ -75,41 +75,18 @@ class ImageManager:
 
         escaped_url = quote(url, safe=":/")
 
-        parsed_url = urlparse(escaped_url)
-
-        # Extract protocol, server host, and path
-        protocol = parsed_url.scheme
-        server_host = parsed_url.netloc
-        path = parsed_url.path
-
-        # Create an HTTP connection to the server based on the protocol
-        if protocol == "http":
-            conn = http.client.HTTPConnection(server_host)
-        elif protocol == "https":
-            conn = http.client.HTTPSConnection(server_host)
-        else:
-            print("Unsupported protocol:", protocol)
-            exit(1)
-
         # Send an HTTP GET request with custom headers
-        conn.request("GET", path)
+        response = requests.get(escaped_url)
 
-        # Get the response
-        response = conn.getresponse()
-
-        if not response.status == 200:
-            print(f"ERROR: Request code is {response.status}")
+        if not response.status_code == 200:
+            print(f"ERROR: Request code is {response.status_code}")
             return None
 
         filename = cls._filename_generator()
 
         filepath = cls.cache_path / filename
         with open(filepath, "wb") as handler:
-            while True:
-                chunk = response.read(1024)
-                if not chunk:
-                    break
-                handler.write(chunk)
+            handler.write(response.content)
 
         return str(filepath)
 
