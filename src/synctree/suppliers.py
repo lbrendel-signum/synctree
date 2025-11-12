@@ -17,6 +17,7 @@ from .config import DigikeyConfig, MouserConfig
 @dataclass
 class PartInfo:
     """Standardized part information from suppliers"""
+    name: str
     manufacturer_name: str
     manufacturer_part_number: str
     supplier_name: str
@@ -26,8 +27,9 @@ class PartInfo:
     image_url: Optional[str] = None
     category: Optional[str] = None
     packaging: Optional[str] = None
-    stock: Optional[int] = None
     pricing: Optional[dict] = None
+    url: Optional[str] = None
+    parameters: Optional[dict[str, str | int | float]] = None
 
 
 class SupplierClient(ABC):
@@ -88,6 +90,11 @@ class DigikeyClient(SupplierClient):
         """Convert Digikey API response to PartInfo"""
         # Extract pricing information
         pricing = {}
+        parameters = {}
+        if hasattr(part, 'parameters') and part.parameters:
+            for param in part.parameters:
+                if hasattr(param, 'parameter_text') and hasattr(param, 'value_text'):
+                    parameters[param.parameter_text] = param.value_text
         if hasattr(part, 'standard_pricing') and part.standard_pricing:
             for price in part.standard_pricing:
                 if hasattr(price, 'break_quantity') and hasattr(price, 'unit_price'):
@@ -96,6 +103,7 @@ class DigikeyClient(SupplierClient):
             pricing[1] = part.unit_price
 
         return PartInfo(
+            name=part.description.product_description if hasattr(part, 'description') else "",
             manufacturer_name=part.manufacturer.name if hasattr(part, 'manufacturer') else "",
             manufacturer_part_number=part.manufacturer_product_number if hasattr(part, 'manufacturer_product_number') else "",
             supplier_name="Digikey",
@@ -103,10 +111,11 @@ class DigikeyClient(SupplierClient):
             description=part.description.detailed_description if hasattr(part, 'description') else "",
             datasheet_url=part.datasheet_url if hasattr(part, 'datasheet_url') else None,
             image_url=part.photo_url if hasattr(part, 'photo_url') else None,
-            category=part.category.name if hasattr(part, 'category') else None,
+            category=part.category.name.split(",")[-1].strip() if hasattr(part, 'category') else None,
             packaging=part.packaging.value if hasattr(part, 'packaging') else None,
-            stock=part.quantity_available if hasattr(part, 'quantity_available') else None,
-            pricing=pricing if pricing else None
+            pricing=pricing if pricing else None,
+            url=part.product_url if hasattr(part, 'product_url') else None,
+            parameters=parameters if parameters else None
         )
 
 

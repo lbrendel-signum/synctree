@@ -5,7 +5,7 @@ InvenTree API client wrapper
 from typing import Optional
 
 from inventree.api import InvenTreeAPI
-from inventree.company import Company, SupplierPart
+from inventree.company import Company, SupplierPart, ManufacturerPart, ManufacturerPartParameter
 from inventree.part import Part, PartCategory
 
 from .config import InvenTreeConfig
@@ -39,8 +39,8 @@ class InvenTreeClient:
                 "name": name,
                 "is_manufacturer": True,
                 "is_supplier": False,
-                "is_customer": False
-            }
+                "is_customer": False,
+            },
         )
 
     def get_or_create_supplier(self, name: str) -> Company:
@@ -59,11 +59,13 @@ class InvenTreeClient:
                 "description": f"Supplier: {name}",
                 "is_manufacturer": False,
                 "is_supplier": True,
-                "is_customer": False
-            }
+                "is_customer": False,
+            },
         )
 
-    def get_or_create_category(self, name: str, parent: Optional[int] = None) -> PartCategory:
+    def get_or_create_category(
+        self, name: str, parent: Optional[int] = None
+    ) -> PartCategory:
         """Get or create a part category"""
         # Search for existing category
         categories = PartCategory.list(self.api, name=name, parent=parent)
@@ -74,7 +76,6 @@ class InvenTreeClient:
         # Create new category
         data = {
             "name": name,
-            "description": f"Category: {name}"
         }
         if parent:
             data["parent"] = parent
@@ -83,11 +84,8 @@ class InvenTreeClient:
 
     def get_or_create_part(self, part_info: PartInfo) -> Part:
         """Get or create a part in InvenTree"""
-        # Search for existing part by manufacturer part number
-        parts = Part.list(
-            self.api,
-            IPN=part_info.manufacturer_part_number
-        )
+        # Search for existing part by name
+        parts = Part.list(self.api, name=part_info.name)
 
         if parts:
             return parts[0]
@@ -102,12 +100,12 @@ class InvenTreeClient:
 
         # Create new part
         part_data = {
-            "name": part_info.manufacturer_part_number,
+            "name": part_info.name,
             "description": part_info.description,
-            "IPN": part_info.manufacturer_part_number,
             "component": True,
             "purchaseable": True,
             "active": True,
+            # TODO: Add parameters
         }
 
         if category:
@@ -115,13 +113,48 @@ class InvenTreeClient:
 
         part = Part.create(self.api, data=part_data)
 
-        # Add manufacturer part
-        part.setManufacturerPart(
-            manufacturer=manufacturer.pk,
-            mpn=part_info.manufacturer_part_number
-        )
 
         return part
+
+    def create_manufacturer_part(self, part: Part, part_info: PartInfo) -> ManufacturerPart:
+        """Create a manufacturer part link"""
+        # Get or create manufacturer
+        manufacturer = self.get_or_create_manufacturer(part_info.manufacturer_name)
+
+        # Check if manufacturer part already exists
+        existing = ManufacturerPart.list(
+            self.api,
+            manufacturer=manufacturer.pk,
+            MPN=part_info.manufacturer_part_number,
+        )
+
+        if existing:
+            return existing[0]
+
+        # Create manufacturer part
+        manufacturer_part_data = {
+            "part": int(part.pk),
+            "manufacturer": int(manufacturer.pk),
+            "MPN": part_info.manufacturer_part_number,
+            "description": part_info.description,
+            "link": part_info.datasheet_url or "",
+            "note": f"Synced from {part_info.supplier_name}",
+        }
+
+        mpart = ManufacturerPart.create(self.api, data=manufacturer_part_data)
+
+        if part_info.parameters:
+            for key, value in part_info.parameters.items():
+                ManufacturerPartParameter.create(
+                    self.api,
+                    data={
+                        "manufacturer_part": mpart.pk,
+                        "name": key,
+                        "value": value,
+                    },
+                )
+
+        return mpart
 
     def create_supplier_part(self, part: Part, part_info: PartInfo) -> SupplierPart:
         """Create a supplier part link"""
@@ -133,7 +166,7 @@ class InvenTreeClient:
             self.api,
             part=part.pk,
             supplier=supplier.pk,
-            SKU=part_info.supplier_part_number
+            SKU=part_info.supplier_part_number,
         )
 
         if existing:
@@ -170,6 +203,9 @@ class InvenTreeClient:
         """
         # Get or create the part
         part = self.get_or_create_part(part_info)
+
+        # Get or create manufacturer part link
+        self.create_manufacturer_part(part, part_info)
 
         # Create supplier part link
         supplier_part = self.create_supplier_part(part, part_info)
