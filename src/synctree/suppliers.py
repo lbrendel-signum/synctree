@@ -31,6 +31,7 @@ class PartInfo:
     pricing: Optional[dict] = None
     url: Optional[str] = None
     parameters: Optional[dict[str, str | int | float]] = None
+    is_active: Optional[bool] = True
 
 
 class SupplierClient(ABC):
@@ -117,7 +118,8 @@ class DigikeyClient(SupplierClient):
             packaging=part.packaging.value if hasattr(part, 'packaging') else None,
             pricing=pricing if pricing else None,
             url=part.product_url if hasattr(part, 'product_url') else None,
-            parameters=parameters if parameters else None
+            parameters=parameters if parameters else None,
+            is_active=not (part.discontinued or part.end_of_life)
         )
 
 

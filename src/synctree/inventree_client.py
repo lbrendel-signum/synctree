@@ -286,6 +286,7 @@ class InvenTreeClient:
 
         # Create supplier part
         supplier_part_data = {
+            "active": part_info.is_active,
             "part": part.pk,
             "supplier": supplier.pk,
             "SKU": part_info.supplier_part_number,
