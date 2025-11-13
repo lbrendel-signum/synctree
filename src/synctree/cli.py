@@ -323,6 +323,142 @@ def bom(
 
 
 @app.command()
+def sync(
+    supplier: Annotated[
+        Optional[str],
+        typer.Option(
+            "--supplier",
+            "-s",
+            help="Specific supplier to sync (default: all configured suppliers)",
+            case_sensitive=False
+        )
+    ] = None,
+    verbose: Annotated[
+        bool,
+        typer.Option("--verbose", "-v", help="Show detailed output")
+    ] = False,
+):
+    """
+    Sync all supplier parts with supplier systems
+
+    Retrieves all supplier parts from InvenTree and checks them against the
+    supplier APIs to verify that pricing and active status are up to date.
+    Updates InvenTree with any changes found.
+
+    Examples:
+
+        synctree sync
+
+        synctree sync --supplier digikey
+
+        synctree sync --verbose
+    """
+    # Validate supplier choice if provided
+    if supplier and supplier.lower() not in ["digikey", "mouser"]:
+        typer.echo(f"Error: Invalid supplier '{supplier}'. Must be 'digikey' or 'mouser'", err=True)
+        raise typer.Exit(1)
+    
+    try:
+        # Load configuration
+        config = Config.from_env()
+
+        # Validate configuration
+        try:
+            config.validate()
+        except ValueError as e:
+            typer.echo(f"Configuration error: {e}", err=True)
+            typer.echo("\nPlease set the required environment variables:", err=True)
+            typer.echo("  - INVENTREE_SERVER_URL: Your InvenTree server URL", err=True)
+            typer.echo("  - INVENTREE_TOKEN: Your InvenTree API token", err=True)
+            typer.echo("\nFor suppliers, set at least one:", err=True)
+            typer.echo("  Digikey:", err=True)
+            typer.echo("    - DIGIKEY_CLIENT_ID", err=True)
+            typer.echo("    - DIGIKEY_CLIENT_SECRET", err=True)
+            typer.echo("  Mouser:", err=True)
+            typer.echo("    - MOUSER_PART_API_KEY", err=True)
+            raise typer.Exit(1)
+
+        # Create sync service
+        service = SyncService(config)
+
+        # Display info
+        typer.echo("🔄 Starting supplier part synchronization...")
+        if supplier:
+            typer.echo(f"   Syncing supplier: {supplier}")
+        else:
+            typer.echo(f"   Syncing all configured suppliers")
+
+        # Track statistics
+        stats = {
+            'total': 0,
+            'up_to_date': 0,
+            'updated': 0,
+            'not_found': 0,
+            'errors': 0
+        }
+
+        # Process all supplier parts
+        typer.echo("\nProcessing supplier parts...")
+        for result in service.sync_all_supplier_parts(supplier):
+            stats['total'] += 1
+            
+            status = result.get('status', 'unknown')
+            sku = result.get('sku', 'unknown')
+            supplier_name = result.get('supplier', 'unknown')
+            
+            if status == 'up_to_date':
+                stats['up_to_date'] += 1
+                if verbose:
+                    typer.echo(f"  ✓ {supplier_name}: {sku} - {result.get('message')}")
+                else:
+                    typer.echo(".", nl=False)
+                    
+            elif status == 'updated':
+                stats['updated'] += 1
+                changes = result.get('changes', {})
+                change_summary = ', '.join(changes.keys())
+                typer.echo(f"\n  🔄 {supplier_name}: {sku} - Updated: {change_summary}")
+                if verbose:
+                    for field, change in changes.items():
+                        typer.echo(f"      {field}: {change.get('old')} → {change.get('new')}")
+                        
+            elif status == 'not_found':
+                stats['not_found'] += 1
+                typer.echo(f"\n  ⚠️  {supplier_name}: {sku} - {result.get('message')}")
+                
+            elif status == 'error' or status == 'update_failed':
+                stats['errors'] += 1
+                typer.echo(f"\n  ❌ {supplier_name}: {sku} - {result.get('message')}")
+                if verbose:
+                    import traceback
+                    typer.echo(f"      Error details: {result.get('message')}")
+
+        # Summary
+        typer.echo("\n\n✅ Synchronization complete!")
+        typer.echo(f"\n📊 Summary:")
+        typer.echo(f"   Total parts processed: {stats['total']}")
+        typer.echo(f"   Up to date: {stats['up_to_date']}")
+        typer.echo(f"   Updated: {stats['updated']}")
+        if stats['not_found'] > 0:
+            typer.echo(f"   Not found in supplier: {stats['not_found']}")
+        if stats['errors'] > 0:
+            typer.echo(f"   Errors: {stats['errors']}")
+
+    except typer.Exit:
+        raise
+    except KeyboardInterrupt:
+        typer.echo("\n\nOperation cancelled by user", err=True)
+        raise typer.Exit(130)
+    except Exception as e:
+        typer.echo(f"\n❌ Error: {e}", err=True)
+        if verbose:
+            import traceback
+            typer.echo("\nTraceback:", err=True)
+            typer.echo(traceback.format_exc(), err=True)
+        raise typer.Exit(1)
+
+
+@app.command()
 def config():
     """Show current configuration status"""
     try:

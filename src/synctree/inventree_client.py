@@ -415,3 +415,92 @@ class InvenTreeClient:
         except Exception as e:
             print(f"Error adding BOM item: {e}")
             return None
+
+    def get_all_supplier_parts(self, supplier_name: Optional[str] = None) -> list:
+        """
+        Get all supplier parts from InvenTree
+        
+        Args:
+            supplier_name: Filter by supplier name (None = all suppliers)
+            
+        Returns:
+            List of supplier part dictionaries
+        """
+        try:
+            # List all supplier parts
+            if supplier_name:
+                # Get supplier company first
+                suppliers = Company.list(self.api, name=supplier_name, is_supplier=True)
+                if suppliers:
+                    supplier_id = suppliers[0].pk
+                    supplier_parts = SupplierPart.list(self.api, supplier=supplier_id)
+                else:
+                    return []
+            else:
+                supplier_parts = SupplierPart.list(self.api)
+            
+            # Convert to dictionaries with all data
+            result = []
+            for sp in supplier_parts:
+                # Get supplier details
+                supplier_data = sp._data if hasattr(sp, '_data') else {}
+                result.append(supplier_data)
+            
+            return result
+        except Exception as e:
+            print(f"Error getting supplier parts: {e}")
+            return []
+
+    def update_supplier_part(self, supplier_part_id: int, part_info: PartInfo) -> bool:
+        """
+        Update a supplier part in InvenTree with new data from supplier
+        
+        Args:
+            supplier_part_id: ID of the supplier part to update
+            part_info: New part information from supplier
+            
+        Returns:
+            True if update successful, False otherwise
+        """
+        try:
+            # Get the supplier part
+            supplier_part = SupplierPart(self.api, pk=supplier_part_id)
+            
+            # Update active status
+            supplier_part.save(data={
+                'active': part_info.is_active
+            })
+            
+            # Update pricing if available
+            if part_info.pricing:
+                # Delete existing price breaks
+                existing_prices = SupplierPriceBreak.list(
+                    self.api,
+                    part=supplier_part_id
+                )
+                for price in existing_prices:
+                    price.delete()
+                
+                # Add new price breaks
+                supplier = Company.list(
+                    self.api,
+                    name=part_info.supplier_name,
+                    is_supplier=True
+                )[0]
+                
+                for qty, price in part_info.pricing.items():
+                    SupplierPriceBreak.create(
+                        self.api,
+                        data={
+                            "part": supplier_part_id,
+                            "quantity": qty,
+                            "price": price,
+                            "supplier": supplier.pk,
+                            "updated": datetime.now().isoformat(),
+                        },
+                    )
+            
+            return True
+        except Exception as e:
+            print(f"Error updating supplier part: {e}")
+            return False

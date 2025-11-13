@@ -127,6 +127,20 @@ The BOM file should be in TSV (tab-separated) or CSV (comma-separated) format wi
 
 Lines without both MPN and SPN will be skipped automatically.
 
+Sync all supplier parts with supplier systems:
+```bash
+# Sync all configured suppliers
+synctree sync
+
+# Sync specific supplier only
+synctree sync --supplier digikey
+
+# Sync with detailed output
+synctree sync --verbose
+```
+
+The sync command retrieves all supplier parts from InvenTree and checks them against the supplier APIs to verify that pricing and active status information are still correct. It updates InvenTree automatically with any changes found.
+
 ### Development Usage
 
 If you're developing and using uv:
@@ -190,6 +204,20 @@ When you use the `bom` command with a TSV/CSV file, SyncTree:
    - Adds manufacturer and supplier information
 4. **Builds BOM**: Adds each component to the assembly's bill of materials with quantities and designators
 5. **Skips Invalid Lines**: Automatically skips any lines without both MPN and SPN
+
+### Syncing Existing Parts
+
+When you use the `sync` command, SyncTree:
+
+1. **Retrieves Supplier Parts**: Gets all supplier parts from InvenTree (or filtered by supplier)
+2. **Checks Each Part**: For each supplier part:
+   - Queries the supplier API with the SKU
+   - Compares current InvenTree data with supplier data
+   - Identifies differences in pricing and active status
+3. **Updates InvenTree**: Automatically updates parts where data has changed:
+   - Updates active/inactive status
+   - Refreshes price breaks
+4. **Reports Results**: Shows summary of parts checked, updated, and any errors
 
 All operations are idempotent - running the same command multiple times is safe.
 

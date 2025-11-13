@@ -128,3 +128,133 @@ class SyncService:
             Dictionary with BOM item info or None if failed
         """
         return self.inventree.add_bom_item(assembly_part_id, sub_part_id, quantity, reference)
+    
+    def sync_all_supplier_parts(self, supplier_name: Optional[str] = None):
+        """
+        Sync all supplier parts from InvenTree with supplier systems
+        
+        Retrieves all supplier parts from InvenTree and checks them against
+        the supplier APIs to verify pricing and active status are up to date.
+        
+        Args:
+            supplier_name: Specific supplier to sync (None = all configured suppliers)
+            
+        Yields:
+            Dictionary with sync status for each part
+        """
+        # Get all supplier parts from InvenTree
+        supplier_parts = self.inventree.get_all_supplier_parts(supplier_name)
+        
+        for inventree_supplier_part in supplier_parts:
+            try:
+                # Get the supplier company name
+                supplier_company = inventree_supplier_part.get('supplier_detail', {}).get('name', '').lower()
+                
+                # Skip if not in configured suppliers
+                if supplier_company not in self.suppliers:
+                    continue
+                
+                # Get supplier part number
+                sku = inventree_supplier_part.get('SKU', '')
+                if not sku:
+                    continue
+                
+                # Query the supplier API
+                supplier_client = self.suppliers[supplier_company]
+                part_info = supplier_client.get_part_info(sku)
+                
+                if not part_info:
+                    yield {
+                        'sku': sku,
+                        'supplier': supplier_company,
+                        'status': 'not_found',
+                        'inventree_id': inventree_supplier_part.get('pk'),
+                        'message': 'Part not found in supplier system'
+                    }
+                    continue
+                
+                # Compare data
+                changes = self._compare_supplier_part_data(inventree_supplier_part, part_info)
+                
+                if changes:
+                    # Update InvenTree with new data
+                    updated = self.inventree.update_supplier_part(
+                        inventree_supplier_part.get('pk'),
+                        part_info
+                    )
+                    
+                    yield {
+                        'sku': sku,
+                        'supplier': supplier_company,
+                        'status': 'updated' if updated else 'update_failed',
+                        'inventree_id': inventree_supplier_part.get('pk'),
+                        'changes': changes,
+                        'message': f"Updated {len(changes)} fields"
+                    }
+                else:
+                    yield {
+                        'sku': sku,
+                        'supplier': supplier_company,
+                        'status': 'up_to_date',
+                        'inventree_id': inventree_supplier_part.get('pk'),
+                        'message': 'No changes needed'
+                    }
+                    
+            except Exception as e:
+                yield {
+                    'sku': inventree_supplier_part.get('SKU', 'unknown'),
+                    'supplier': supplier_company if 'supplier_company' in locals() else 'unknown',
+                    'status': 'error',
+                    'inventree_id': inventree_supplier_part.get('pk'),
+                    'message': str(e)
+                }
+    
+    def _compare_supplier_part_data(self, inventree_part: dict, supplier_info: PartInfo) -> dict:
+        """
+        Compare InvenTree supplier part with supplier API data
+        
+        Returns:
+            Dictionary of fields that differ
+        """
+        changes = {}
+        
+        # Check active status
+        if inventree_part.get('active') != supplier_info.is_active:
+            changes['active'] = {
+                'old': inventree_part.get('active'),
+                'new': supplier_info.is_active
+            }
+        
+        # Check pricing (compare latest price breaks)
+        if supplier_info.pricing:
+            inventree_prices = inventree_part.get('pricing', [])
+            # Simple check - if pricing data exists and doesn't match, flag for update
+            if not inventree_prices or self._pricing_differs(inventree_prices, supplier_info.pricing):
+                changes['pricing'] = {
+                    'old': len(inventree_prices),
+                    'new': len(supplier_info.pricing)
+                }
+        
+        return changes
+    
+    def _pricing_differs(self, inventree_prices: list, supplier_pricing: dict) -> bool:
+        """Check if pricing data differs between InvenTree and supplier"""
+        if len(inventree_prices) != len(supplier_pricing):
+            return True
+        
+        # Create a dict from inventree prices for comparison
+        inventree_price_dict = {}
+        for price_break in inventree_prices:
+            qty = price_break.get('quantity', 0)
+            price = float(price_break.get('price', 0))
+            inventree_price_dict[qty] = price
+        
+        # Compare with supplier pricing
+        for qty, price in supplier_pricing.items():
+            if qty not in inventree_price_dict:
+                return True
+            # Allow small floating point differences
+            if abs(inventree_price_dict[qty] - price) > 0.01:
+                return True
+        
+        return False
