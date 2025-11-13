@@ -119,13 +119,14 @@ synctree bom MY-PCB-REV2 bom.csv --verbose
 ```
 
 The BOM file should be in TSV (tab-separated) or CSV (comma-separated) format with the following columns:
-- **Supplier** (or Supplier Name) - Name of the supplier (e.g., "Digikey", "Mouser")
+- **Supplier** (or Supplier Name) - Name of the supplier (e.g., "Digikey", "Mouser", "Tag-Connect")
 - **SPN** (or SKU) - Supplier part number
 - **MPN** - Manufacturer part number
+- **Manufacturer** (or Manufacturer Name) - Name of the manufacturer (optional)
 - **Qty** (or Quantity) - Quantity needed (optional, defaults to 1)
 - **Designators** - Reference designators (optional, e.g., "R1, R2, R3")
 
-Lines without both MPN and SPN will be skipped automatically.
+Lines without both MPN and SPN will be skipped automatically. Parts will be synced from supplier APIs (Digikey/Mouser) when available, or created directly from BOM data for other suppliers.
 
 Sync all supplier parts with supplier systems:
 ```bash
@@ -200,11 +201,12 @@ When you use the `bom` command with a TSV/CSV file, SyncTree:
 1. **Creates Assembly Part**: Creates a new assembly part in InvenTree with the given part number
 2. **Reads BOM File**: Parses the TSV or CSV file to extract component information
 3. **Syncs Each Component**: For each line item with MPN or SPN:
-   - Searches supplier APIs for the component
-   - Creates/updates the component part in InvenTree
-   - Adds manufacturer and supplier information
+   - Attempts to search supplier APIs (Digikey/Mouser) for the component
+   - If not found in supplier APIs, creates the part directly from BOM data
+   - Creates/updates manufacturer and supplier companies (including non-built-in suppliers)
+   - Creates/updates the component part in InvenTree with manufacturer and supplier information
 4. **Builds BOM**: Adds each component to the assembly's bill of materials with quantities and designators
-5. **Skips Invalid Lines**: Automatically skips any lines without both MPN and SPN
+5. **Skips Invalid Lines**: Automatically skips any lines without either MPN or SPN
 
 ### Syncing Existing Parts
 
