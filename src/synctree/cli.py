@@ -7,6 +7,7 @@ from pathlib import Path
 from typing import Optional
 
 import typer
+from rich.progress import Progress, SpinnerColumn, TextColumn, BarColumn, TaskProgressColumn
 from typing_extensions import Annotated
 
 from . import __version__
@@ -257,47 +258,57 @@ def bom(
         success_count = 0
         error_count = 0
 
-        for idx, item in enumerate(bom_items, start=1):
-            try:
-                # Try to find/sync the part
-                part_number_to_sync = item['spn'] if item['spn'] else item['mpn']
-                supplier_name = item['supplier'].lower() if item['supplier'] else None
+        with Progress(
+            SpinnerColumn(),
+            TextColumn("[progress.description]{task.description}"),
+            BarColumn(),
+            TaskProgressColumn(),
+        ) as progress:
+            task = progress.add_task("Processing BOM items", total=len(bom_items))
 
-                if verbose:
-                    typer.echo(f"\n[{idx}/{len(bom_items)}] Processing: {part_number_to_sync}")
+            for idx, item in enumerate(bom_items, start=1):
+                try:
+                    # Try to find/sync the part
+                    part_number_to_sync = item['spn'] if item['spn'] else item['mpn']
+                    supplier_name = item['supplier'].lower() if item['supplier'] else None
 
-                # Sync the component part
-                result = service.sync_part(part_number_to_sync, supplier_name)
-
-                if not result:
-                    typer.echo(f"  ❌ Part not found: {part_number_to_sync}", err=True)
-                    error_count += 1
-                    continue
-
-                # Add to BOM
-                bom_result = service.add_bom_item(
-                    assembly_part_id=assembly_result['inventree_part_id'],
-                    sub_part_id=result['inventree_part_id'],
-                    quantity=item['quantity'],
-                    reference=item['designators']
-                )
-
-                if bom_result:
                     if verbose:
-                        typer.echo(f"  ✅ Added to BOM: {result['manufacturer_part_number']}")
-                    else:
-                        typer.echo(".", nl=False)
-                    success_count += 1
-                else:
-                    typer.echo(f"  ⚠️  Failed to add to BOM: {part_number_to_sync}", err=True)
-                    error_count += 1
+                        progress.console.print(f"\n[{idx}/{len(bom_items)}] Processing: {part_number_to_sync}")
 
-            except Exception as e:
-                typer.echo(f"  ❌ Error processing item: {e}", err=True)
-                if verbose:
-                    import traceback
-                    typer.echo(traceback.format_exc(), err=True)
-                error_count += 1
+                    # Sync the component part
+                    result = service.sync_part(part_number_to_sync, supplier_name)
+
+                    if not result:
+                        progress.console.print(f"  ❌ Part not found: {part_number_to_sync}", style="red")
+                        error_count += 1
+                        progress.update(task, advance=1)
+                        continue
+
+                    # Add to BOM
+                    bom_result = service.add_bom_item(
+                        assembly_part_id=assembly_result['inventree_part_id'],
+                        sub_part_id=result['inventree_part_id'],
+                        quantity=item['quantity'],
+                        reference=item['designators']
+                    )
+
+                    if bom_result:
+                        if verbose:
+                            progress.console.print(f"  ✅ Added to BOM: {result['manufacturer_part_number']}")
+                        success_count += 1
+                    else:
+                        progress.console.print(f"  ⚠️  Failed to add to BOM: {part_number_to_sync}", style="yellow")
+                        error_count += 1
+
+                    progress.update(task, advance=1)
+
+                except Exception as e:
+                    progress.console.print(f"  ❌ Error processing item: {e}", style="red")
+                    if verbose:
+                        import traceback
+                        progress.console.print(traceback.format_exc())
+                    error_count += 1
+                    progress.update(task, advance=1)
 
         # Summary
         typer.echo("\n\n✅ BOM processing complete!")
@@ -357,7 +368,7 @@ def sync(
     if supplier and supplier.lower() not in ["digikey", "mouser"]:
         typer.echo(f"Error: Invalid supplier '{supplier}'. Must be 'digikey' or 'mouser'", err=True)
         raise typer.Exit(1)
-    
+
     try:
         # Load configuration
         config = Config.from_env()
@@ -401,18 +412,18 @@ def sync(
         typer.echo("\nProcessing supplier parts...")
         for result in service.sync_all_supplier_parts(supplier):
             stats['total'] += 1
-            
+
             status = result.get('status', 'unknown')
             sku = result.get('sku', 'unknown')
             supplier_name = result.get('supplier', 'unknown')
-            
+
             if status == 'up_to_date':
                 stats['up_to_date'] += 1
                 if verbose:
                     typer.echo(f"  ✓ {supplier_name}: {sku} - {result.get('message')}")
                 else:
                     typer.echo(".", nl=False)
-                    
+
             elif status == 'updated':
                 stats['updated'] += 1
                 changes = result.get('changes', {})
@@ -421,11 +432,11 @@ def sync(
                 if verbose:
                     for field, change in changes.items():
                         typer.echo(f"      {field}: {change.get('old')} → {change.get('new')}")
-                        
+
             elif status == 'not_found':
                 stats['not_found'] += 1
                 typer.echo(f"\n  ⚠️  {supplier_name}: {sku} - {result.get('message')}")
-                
+
             elif status == 'error' or status == 'update_failed':
                 stats['errors'] += 1
                 typer.echo(f"\n  ❌ {supplier_name}: {sku} - {result.get('message')}")
@@ -435,7 +446,7 @@ def sync(
 
         # Summary
         typer.echo("\n\n✅ Synchronization complete!")
-        typer.echo(f"\n📊 Summary:")
+        typer.echo("\n📊 Summary:")
         typer.echo(f"   Total parts processed: {stats['total']}")
         typer.echo(f"   Up to date: {stats['up_to_date']}")
         typer.echo(f"   Updated: {stats['updated']}")
