@@ -319,7 +319,7 @@ def bom(
                             progress.console.print(
                                 f"  ℹ️  Not found via supplier API, creating from BOM data"
                             )
-                        
+
                         result = service.create_part_from_bom(
                             mpn=item["mpn"],
                             spn=item["spn"],
@@ -327,7 +327,7 @@ def bom(
                             supplier=item["supplier"],
                             description=None,  # Could add description column to BOM if needed
                         )
-                        
+
                         if not result:
                             progress.console.print(
                                 f"  ❌ Failed to create part: {part_number_to_sync}", style="red"
