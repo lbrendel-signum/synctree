@@ -72,10 +72,10 @@ class ImageManager:
     def _download_image(cls, url: str) -> str:
         print(f"Trying URL {url}")
 
-        escaped_url = quote(url, safe=":/")
+        # escaped_url = quote(url, safe=":/")
 
         # Send an HTTP GET request with custom headers
-        response = requests.get(escaped_url)
+        response = requests.get(url)
 
         if not response.status_code == 200:
             print(f"ERROR: Request code is {response.status_code}")
