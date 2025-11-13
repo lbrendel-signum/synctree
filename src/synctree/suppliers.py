@@ -115,7 +115,7 @@ class DigikeyClient(SupplierClient):
             manufacturer_part_number=part.manufacturer_product_number if hasattr(part, 'manufacturer_product_number') else "",
             supplier_name="Digikey",
             supplier_part_number=part.product_variations[0].digi_key_product_number if hasattr(part, 'product_variations') and part.product_variations else "",
-            description=part.description.detailed_description if hasattr(part, 'description') else "",
+            description=part.description.detailed_description[:250] if hasattr(part, 'description') else "",
             datasheet_url=datasheet,
             image_url=part.photo_url if hasattr(part, 'photo_url') else None,
             category=part.category.child_categories[0].name if hasattr(part, 'category') else None,
