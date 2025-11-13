@@ -7,7 +7,13 @@ from pathlib import Path
 from typing import Optional
 
 import typer
-from rich.progress import Progress, SpinnerColumn, TextColumn, BarColumn, TaskProgressColumn
+from rich.progress import (
+    Progress,
+    SpinnerColumn,
+    TextColumn,
+    BarColumn,
+    TaskProgressColumn,
+)
 from typing_extensions import Annotated
 
 from . import __version__
@@ -28,7 +34,12 @@ def version_callback(value: bool):
 def main(
     version: Annotated[
         Optional[bool],
-        typer.Option("--version", callback=version_callback, is_eager=True, help="Show version and exit")
+        typer.Option(
+            "--version",
+            callback=version_callback,
+            is_eager=True,
+            help="Show version and exit",
+        ),
     ] = None,
 ):
     """SyncTree - Sync supplier part information to InvenTree"""
@@ -37,19 +48,23 @@ def main(
 
 @app.command()
 def add(
-    part_number: Annotated[str, typer.Argument(help="Part number to add (manufacturer or supplier part number)")],
+    part_number: Annotated[
+        str,
+        typer.Argument(
+            help="Part number to add (manufacturer or supplier part number)"
+        ),
+    ],
     supplier: Annotated[
         Optional[str],
         typer.Option(
             "--supplier",
             "-s",
             help="Specific supplier to use (default: try all configured suppliers)",
-            case_sensitive=False
-        )
+            case_sensitive=False,
+        ),
     ] = None,
     verbose: Annotated[
-        bool,
-        typer.Option("--verbose", "-v", help="Show detailed output")
+        bool, typer.Option("--verbose", "-v", help="Show detailed output")
     ] = False,
 ):
     """
@@ -69,7 +84,10 @@ def add(
     """
     # Validate supplier choice if provided
     if supplier and supplier.lower() not in ["digikey", "mouser"]:
-        typer.echo(f"Error: Invalid supplier '{supplier}'. Must be 'digikey' or 'mouser'", err=True)
+        typer.echo(
+            f"Error: Invalid supplier '{supplier}'. Must be 'digikey' or 'mouser'",
+            err=True,
+        )
         raise typer.Exit(1)
 
     try:
@@ -124,7 +142,9 @@ def add(
             typer.echo("\n📝 Details:")
             typer.echo(f"   Description: {result['description']}")
             typer.echo(f"   InvenTree Part ID: {result['inventree_part_id']}")
-            typer.echo(f"   InvenTree Supplier Part ID: {result['inventree_supplier_part_id']}")
+            typer.echo(
+                f"   InvenTree Supplier Part ID: {result['inventree_supplier_part_id']}"
+            )
 
     except typer.Exit:
         raise
@@ -135,6 +155,7 @@ def add(
         typer.echo(f"\n❌ Error: {e}", err=True)
         if verbose:
             import traceback
+
             typer.echo("\nTraceback:", err=True)
             typer.echo(traceback.format_exc(), err=True)
         raise typer.Exit(1)
@@ -142,11 +163,14 @@ def add(
 
 @app.command()
 def bom(
-    part_number: Annotated[str, typer.Argument(help="Part number to create in InvenTree")],
-    bom_file: Annotated[Path, typer.Argument(help="Path to TSV or CSV file with BOM data")],
+    part_number: Annotated[
+        str, typer.Argument(help="Part number to create in InvenTree")
+    ],
+    bom_file: Annotated[
+        Path, typer.Argument(help="Path to TSV or CSV file with BOM data")
+    ],
     verbose: Annotated[
-        bool,
-        typer.Option("--verbose", "-v", help="Show detailed output")
+        bool, typer.Option("--verbose", "-v", help="Show detailed output")
     ] = False,
 ):
     """
@@ -204,26 +228,28 @@ def bom(
             typer.echo("❌ Failed to create assembly part", err=True)
             raise typer.Exit(1)
 
-        typer.echo(f"✅ Created assembly part (ID: {assembly_result['inventree_part_id']})")
+        typer.echo(
+            f"✅ Created assembly part (ID: {assembly_result['inventree_part_id']})"
+        )
 
         # Read BOM file
         typer.echo(f"\nReading BOM file: {bom_file}")
 
         # Determine delimiter based on file extension
-        delimiter = '\t' if bom_file.suffix.lower() == '.tsv' else ','
+        delimiter = "\t" if bom_file.suffix.lower() == ".tsv" else ","
 
         bom_items = []
         skipped_items = []
 
-        with open(bom_file, 'r', encoding='utf-8') as f:
+        with open(bom_file, "r", encoding="utf-8") as f:
             reader = csv.DictReader(f, delimiter=delimiter)
             for row_num, row in enumerate(reader, start=2):  # Start at 2 (1 for header)
                 # Get values with flexible column names
-                supplier = row.get('Supplier') or row.get('Supplier Name', '').strip()
-                spn = row.get('SPN') or row.get('SKU', '').strip()
-                mpn = row.get('MPN') or row.get('Manufacturer Part Number', '').strip()
-                qty = row.get('Qty') or row.get('Quantity', '1').strip()
-                designators = row.get('Designators', '').strip()
+                supplier = row.get("Supplier") or row.get("Supplier Name", "").strip()
+                spn = row.get("SPN") or row.get("SKU", "").strip()
+                mpn = row.get("MPN") or row.get("Manufacturer Part Number", "").strip()
+                qty = row.get("Qty") or row.get("Quantity", "1").strip()
+                designators = row.get("Designators", "").strip()
 
                 # Skip if no MPN or SPN
                 if not mpn and not spn:
@@ -236,14 +262,16 @@ def bom(
                 except ValueError:
                     quantity = 1.0
 
-                bom_items.append({
-                    'supplier': supplier,
-                    'spn': spn,
-                    'mpn': mpn,
-                    'quantity': quantity,
-                    'designators': designators,
-                    'row': row_num
-                })
+                bom_items.append(
+                    {
+                        "supplier": supplier,
+                        "spn": spn,
+                        "mpn": mpn,
+                        "quantity": quantity,
+                        "designators": designators,
+                        "row": row_num,
+                    }
+                )
 
         typer.echo(f"Found {len(bom_items)} items to process")
         if skipped_items:
@@ -269,43 +297,57 @@ def bom(
             for idx, item in enumerate(bom_items, start=1):
                 try:
                     # Try to find/sync the part
-                    part_number_to_sync = item['spn'] if item['spn'] else item['mpn']
-                    supplier_name = item['supplier'].lower() if item['supplier'] else None
+                    part_number_to_sync = item["spn"] if item["spn"] else item["mpn"]
+                    supplier_name = (
+                        item["supplier"].lower() if item["supplier"] else None
+                    )
 
                     if verbose:
-                        progress.console.print(f"\n[{idx}/{len(bom_items)}] Processing: {part_number_to_sync}")
+                        progress.console.print(
+                            f"\n[{idx}/{len(bom_items)}] Processing: {part_number_to_sync}"
+                        )
 
                     # Sync the component part
                     result = service.sync_part(part_number_to_sync, supplier_name)
 
                     if not result:
-                        progress.console.print(f"  ❌ Part not found: {part_number_to_sync}", style="red")
+                        progress.console.print(
+                            f"  ❌ Part not found: {part_number_to_sync}", style="red"
+                        )
                         error_count += 1
                         progress.update(task, advance=1)
                         continue
 
                     # Add to BOM
                     bom_result = service.add_bom_item(
-                        assembly_part_id=assembly_result['inventree_part_id'],
-                        sub_part_id=result['inventree_part_id'],
-                        quantity=item['quantity'],
-                        reference=item['designators']
+                        assembly_part_id=assembly_result["inventree_part_id"],
+                        sub_part_id=result["inventree_part_id"],
+                        quantity=item["quantity"],
+                        reference=item["designators"],
                     )
 
                     if bom_result:
                         if verbose:
-                            progress.console.print(f"  ✅ Added to BOM: {result['manufacturer_part_number']}")
+                            progress.console.print(
+                                f"  ✅ Added to BOM: {result['manufacturer_part_number']}"
+                            )
                         success_count += 1
                     else:
-                        progress.console.print(f"  ⚠️  Failed to add to BOM: {part_number_to_sync}", style="yellow")
+                        progress.console.print(
+                            f"  ⚠️  Failed to add to BOM: {part_number_to_sync}",
+                            style="yellow",
+                        )
                         error_count += 1
 
                     progress.update(task, advance=1)
 
                 except Exception as e:
-                    progress.console.print(f"  ❌ Error processing item: {e}", style="red")
+                    progress.console.print(
+                        f"  ❌ Error processing item: {e}", style="red"
+                    )
                     if verbose:
                         import traceback
+
                         progress.console.print(traceback.format_exc())
                     error_count += 1
                     progress.update(task, advance=1)
@@ -328,6 +370,7 @@ def bom(
         typer.echo(f"\n❌ Error: {e}", err=True)
         if verbose:
             import traceback
+
             typer.echo("\nTraceback:", err=True)
             typer.echo(traceback.format_exc(), err=True)
         raise typer.Exit(1)
@@ -341,12 +384,11 @@ def sync(
             "--supplier",
             "-s",
             help="Specific supplier to sync (default: all configured suppliers)",
-            case_sensitive=False
-        )
+            case_sensitive=False,
+        ),
     ] = None,
     verbose: Annotated[
-        bool,
-        typer.Option("--verbose", "-v", help="Show detailed output")
+        bool, typer.Option("--verbose", "-v", help="Show detailed output")
     ] = False,
 ):
     """
@@ -366,7 +408,10 @@ def sync(
     """
     # Validate supplier choice if provided
     if supplier and supplier.lower() not in ["digikey", "mouser"]:
-        typer.echo(f"Error: Invalid supplier '{supplier}'. Must be 'digikey' or 'mouser'", err=True)
+        typer.echo(
+            f"Error: Invalid supplier '{supplier}'. Must be 'digikey' or 'mouser'",
+            err=True,
+        )
         raise typer.Exit(1)
 
     try:
@@ -400,49 +445,55 @@ def sync(
             typer.echo(f"   Syncing all configured suppliers")
 
         # Track statistics
-        stats = {
-            'total': 0,
-            'up_to_date': 0,
-            'updated': 0,
-            'not_found': 0,
-            'errors': 0
-        }
+        stats = {"total": 0, "up_to_date": 0, "updated": 0, "not_found": 0, "errors": 0}
 
         # Process all supplier parts
         typer.echo("\nProcessing supplier parts...")
-        for result in service.sync_all_supplier_parts(supplier):
-            stats['total'] += 1
 
-            status = result.get('status', 'unknown')
-            sku = result.get('sku', 'unknown')
-            supplier_name = result.get('supplier', 'unknown')
+        with Progress(
+            SpinnerColumn(),
+            TextColumn("[progress.description]{task.description}"),
+            BarColumn(),
+            TaskProgressColumn(),
+        ) as progress:
+            # Start with indeterminate progress since we don't know total count yet
+            task = progress.add_task("Syncing supplier parts", total=None)
 
-            if status == 'up_to_date':
-                stats['up_to_date'] += 1
-                if verbose:
-                    typer.echo(f"  ✓ {supplier_name}: {sku} - {result.get('message')}")
-                else:
-                    typer.echo(".", nl=False)
+            for result in service.sync_all_supplier_parts(supplier):
+                stats["total"] += 1
+                progress.update(task, total=stats["total"], completed=stats["total"])
 
-            elif status == 'updated':
-                stats['updated'] += 1
-                changes = result.get('changes', {})
-                change_summary = ', '.join(changes.keys())
-                typer.echo(f"\n  🔄 {supplier_name}: {sku} - Updated: {change_summary}")
-                if verbose:
-                    for field, change in changes.items():
-                        typer.echo(f"      {field}: {change.get('old')} → {change.get('new')}")
+                status = result.get("status", "unknown")
+                sku = result.get("sku", "unknown")
+                supplier_name = result.get("supplier", "unknown")
 
-            elif status == 'not_found':
-                stats['not_found'] += 1
-                typer.echo(f"\n  ⚠️  {supplier_name}: {sku} - {result.get('message')}")
+                if status == "up_to_date":
+                    stats["up_to_date"] += 1
+                    if verbose:
+                        progress.console.print(f"  ✓ {supplier_name}: {sku} - {result.get('message')}")
 
-            elif status == 'error' or status == 'update_failed':
-                stats['errors'] += 1
-                typer.echo(f"\n  ❌ {supplier_name}: {sku} - {result.get('message')}")
-                if verbose:
-                    import traceback
-                    typer.echo(f"      Error details: {result.get('message')}")
+                elif status == "updated":
+                    stats["updated"] += 1
+                    changes = result.get("changes", {})
+                    change_summary = ", ".join(changes.keys())
+                    progress.console.print(f"  🔄 {supplier_name}: {sku} - Updated: {change_summary}")
+                    if verbose:
+                        for field, change in changes.items():
+                            progress.console.print(
+                                f"      {field}: {change.get('old')} → {change.get('new')}"
+                            )
+
+                elif status == "not_found":
+                    stats["not_found"] += 1
+                    progress.console.print(f"  ⚠️  {supplier_name}: {sku} - {result.get('message')}")
+
+                elif status == "error" or status == "update_failed":
+                    stats["errors"] += 1
+                    progress.console.print(f"  ❌ {supplier_name}: {sku} - {result.get('message')}")
+                    if verbose:
+                        import traceback
+
+                        progress.console.print(f"      Error details: {result.get('message')}")
 
         # Summary
         typer.echo("\n\n✅ Synchronization complete!")
@@ -450,9 +501,9 @@ def sync(
         typer.echo(f"   Total parts processed: {stats['total']}")
         typer.echo(f"   Up to date: {stats['up_to_date']}")
         typer.echo(f"   Updated: {stats['updated']}")
-        if stats['not_found'] > 0:
+        if stats["not_found"] > 0:
             typer.echo(f"   Not found in supplier: {stats['not_found']}")
-        if stats['errors'] > 0:
+        if stats["errors"] > 0:
             typer.echo(f"   Errors: {stats['errors']}")
 
     except typer.Exit:
@@ -464,6 +515,7 @@ def sync(
         typer.echo(f"\n❌ Error: {e}", err=True)
         if verbose:
             import traceback
+
             typer.echo("\nTraceback:", err=True)
             typer.echo(traceback.format_exc(), err=True)
         raise typer.Exit(1)
@@ -513,5 +565,3 @@ def config():
 
 if __name__ == "__main__":
     app()
-
-
