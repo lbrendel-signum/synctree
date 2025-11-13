@@ -177,7 +177,13 @@ class InvenTreeClient:
         )
 
         if parts and (part_info.name in [p.name for p in parts]):
-            return next(p for p in parts if p.name == part_info.name)
+            part = next(p for p in parts if p.name == part_info.name)
+            
+            # Check if existing part needs an image
+            if part_info.image_url:
+                self.check_and_upload_part_image(part.pk, part_info.image_url)
+            
+            return part
 
         # Create new part
         part_data = {
@@ -503,4 +509,37 @@ class InvenTreeClient:
             return True
         except Exception as e:
             print(f"Error updating supplier part: {e}")
+            return False
+
+    def check_and_upload_part_image(self, part_id: int, image_url: str) -> bool:
+        """
+        Check if a part has an image, and if not, upload from the given URL
+        
+        Args:
+            part_id: ID of the part to check
+            image_url: URL of the image to upload if missing
+            
+        Returns:
+            True if image was uploaded, False otherwise
+        """
+        try:
+            # Get the part
+            part = Part(self.api, pk=part_id)
+            
+            # Check if part already has an image
+            # The image field in InvenTree is typically stored as 'image'
+            if hasattr(part, '_data') and part._data.get('image'):
+                # Part already has an image
+                return False
+            
+            # No image, so download and upload it
+            if image_url:
+                image_path = ImageManager.get_image(image_url)
+                if image_path:
+                    part.uploadImage(image_path)
+                    return True
+            
+            return False
+        except Exception as e:
+            print(f"Error checking/uploading part image: {e}")
             return False

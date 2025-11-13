@@ -175,6 +175,17 @@ class SyncService:
 
                 # Compare data
                 changes = self._compare_supplier_part_data(inventree_supplier_part, part_info)
+                
+                # Check if part image needs to be uploaded
+                part_id = inventree_supplier_part.get('part')
+                if part_id and part_info.image_url:
+                    image_uploaded = self.inventree.check_and_upload_part_image(
+                        part_id,
+                        part_info.image_url
+                    )
+                    if image_uploaded:
+                        if 'image' not in changes:
+                            changes['image'] = {'old': 'none', 'new': 'uploaded'}
 
                 if changes:
                     # Update InvenTree with new data

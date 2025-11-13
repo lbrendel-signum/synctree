@@ -139,7 +139,7 @@ synctree sync --supplier digikey
 synctree sync --verbose
 ```
 
-The sync command retrieves all supplier parts from InvenTree and checks them against the supplier APIs to verify that pricing and active status information are still correct. It updates InvenTree automatically with any changes found.
+The sync command retrieves all supplier parts from InvenTree and checks them against the supplier APIs to verify that pricing and active status information are still correct. It updates InvenTree automatically with any changes found. Additionally, the sync command will check if parts are missing images and automatically download and upload images from the supplier APIs when available.
 
 ### Development Usage
 
@@ -186,11 +186,12 @@ else:
 When you provide a part number using the `add` command, SyncTree:
 
 1. **Searches Supplier APIs**: Queries configured supplier APIs (Digikey/Mouser) for the part
-2. **Extracts Information**: Gets manufacturer name, MPN, description, datasheet, etc.
+2. **Extracts Information**: Gets manufacturer name, MPN, description, datasheet, images, etc.
 3. **Creates/Updates Manufacturer**: Ensures the manufacturer company exists in InvenTree
 4. **Creates/Updates Supplier**: Ensures the supplier company exists in InvenTree
 5. **Creates/Updates Part**: Creates the part with manufacturer information
-6. **Links Supplier Part**: Creates the supplier part relationship with SKU and pricing
+6. **Uploads Part Image**: If the part doesn't have an image, downloads and uploads it from supplier
+7. **Links Supplier Part**: Creates the supplier part relationship with SKU and pricing
 
 ### Creating Assemblies with BOM
 
@@ -217,6 +218,7 @@ When you use the `sync` command, SyncTree:
 3. **Updates InvenTree**: Automatically updates parts where data has changed:
    - Updates active/inactive status
    - Refreshes price breaks
+   - Downloads and uploads missing part images from supplier APIs
 4. **Reports Results**: Shows summary of parts checked, updated, and any errors
 
 All operations are idempotent - running the same command multiple times is safe.
