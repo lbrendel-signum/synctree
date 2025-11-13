@@ -8,11 +8,11 @@ from typing import Optional
 
 import typer
 from rich.progress import (
+    BarColumn,
     Progress,
     SpinnerColumn,
-    TextColumn,
-    BarColumn,
     TaskProgressColumn,
+    TextColumn,
 )
 from typing_extensions import Annotated
 
@@ -442,7 +442,7 @@ def sync(
         if supplier:
             typer.echo(f"   Syncing supplier: {supplier}")
         else:
-            typer.echo(f"   Syncing all configured suppliers")
+            typer.echo("   Syncing all configured suppliers")
 
         # Track statistics
         stats = {"total": 0, "up_to_date": 0, "updated": 0, "not_found": 0, "errors": 0}
@@ -470,13 +470,17 @@ def sync(
                 if status == "up_to_date":
                     stats["up_to_date"] += 1
                     if verbose:
-                        progress.console.print(f"  ✓ {supplier_name}: {sku} - {result.get('message')}")
+                        progress.console.print(
+                            f"  ✓ {supplier_name}: {sku} - {result.get('message')}"
+                        )
 
                 elif status == "updated":
                     stats["updated"] += 1
                     changes = result.get("changes", {})
                     change_summary = ", ".join(changes.keys())
-                    progress.console.print(f"  🔄 {supplier_name}: {sku} - Updated: {change_summary}")
+                    progress.console.print(
+                        f"  🔄 {supplier_name}: {sku} - Updated: {change_summary}"
+                    )
                     if verbose:
                         for field, change in changes.items():
                             progress.console.print(
@@ -485,15 +489,21 @@ def sync(
 
                 elif status == "not_found":
                     stats["not_found"] += 1
-                    progress.console.print(f"  ⚠️  {supplier_name}: {sku} - {result.get('message')}")
+                    progress.console.print(
+                        f"  ⚠️  {supplier_name}: {sku} - {result.get('message')}"
+                    )
 
                 elif status == "error" or status == "update_failed":
                     stats["errors"] += 1
-                    progress.console.print(f"  ❌ {supplier_name}: {sku} - {result.get('message')}")
+                    progress.console.print(
+                        f"  ❌ {supplier_name}: {sku} - {result.get('message')}"
+                    )
                     if verbose:
                         import traceback
 
-                        progress.console.print(f"      Error details: {result.get('message')}")
+                        progress.console.print(
+                            f"      Error details: {result.get('message')}"
+                        )
 
         # Summary
         typer.echo("\n\n✅ Synchronization complete!")
