@@ -96,6 +96,54 @@ class SyncService:
             "description": part_info.description
         }
 
+    def create_part_from_bom(
+        self,
+        mpn: Optional[str] = None,
+        spn: Optional[str] = None,
+        manufacturer: Optional[str] = None,
+        supplier: Optional[str] = None,
+        description: Optional[str] = None,
+    ) -> Optional[dict]:
+        """
+        Create a part from BOM data without querying supplier APIs
+        
+        This allows creating parts from any manufacturer/supplier, not just
+        built-in suppliers (Digikey/Mouser).
+        
+        Args:
+            mpn: Manufacturer part number
+            spn: Supplier part number
+            manufacturer: Manufacturer name
+            supplier: Supplier name
+            description: Part description
+            
+        Returns:
+            Dictionary with part info or None if failed
+        """
+        result = self.inventree.create_part_from_bom_data(
+            mpn=mpn,
+            spn=spn,
+            manufacturer=manufacturer,
+            supplier=supplier,
+            description=description,
+        )
+        
+        if not result:
+            return None
+        
+        part, supplier_part = result
+        
+        return {
+            "success": True,
+            "supplier": supplier if supplier else "N/A",
+            "manufacturer": manufacturer if manufacturer else "N/A",
+            "manufacturer_part_number": mpn if mpn else "N/A",
+            "supplier_part_number": spn if spn else "N/A",
+            "inventree_part_id": part.pk,
+            "inventree_supplier_part_id": supplier_part.pk if supplier_part else None,
+            "description": description if description else f"Part: {mpn or spn}",
+        }
+
     def create_assembly_part(self, part_number: str) -> Optional[dict]:
         """
         Create an assembly part in InvenTree

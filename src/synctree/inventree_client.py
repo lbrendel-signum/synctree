@@ -324,6 +324,120 @@ class InvenTreeClient:
 
         return part, supplier_part
 
+    def create_part_from_bom_data(
+        self,
+        mpn: Optional[str] = None,
+        spn: Optional[str] = None,
+        manufacturer: Optional[str] = None,
+        supplier: Optional[str] = None,
+        description: Optional[str] = None,
+    ) -> Optional[tuple[Part, Optional[SupplierPart]]]:
+        """
+        Create a part in InvenTree from BOM data without querying supplier APIs
+
+        This method creates parts directly from BOM file data, allowing creation
+        of parts from any manufacturer/supplier, not just built-in suppliers.
+
+        Args:
+            mpn: Manufacturer part number
+            spn: Supplier part number
+            manufacturer: Manufacturer name
+            supplier: Supplier name
+            description: Part description
+
+        Returns:
+            Tuple of (Part, SupplierPart) if successful, None otherwise
+            SupplierPart may be None if only MPN is provided without supplier info
+        """
+        try:
+            # Must have at least MPN or SPN
+            if not mpn and not spn:
+                return None
+
+            # Use MPN as the part name if available, otherwise use SPN
+            part_name = mpn if mpn else spn
+            part_description = description if description else f"Part: {part_name}"
+
+            # Search for existing part by name
+            existing_parts = ManufacturerPart.list(self.api, MPN=part_name)
+
+            if existing_parts and (part_name in [p.MPN for p in existing_parts]):
+                part = existing_parts[0]
+            else:
+                # Create new part
+                part_data = {
+                    "name": part_name,
+                    "description": part_description,
+                    "component": True,
+                    "purchaseable": True,
+                    "active": True,
+                }
+                part = Part.create(self.api, data=part_data)
+
+            # Create manufacturer part if manufacturer info is available
+            mpart = None
+            if mpn and manufacturer:
+                # Get or create manufacturer
+                manufacturer_company = self.get_or_create_manufacturer(manufacturer)
+
+                # Check if manufacturer part already exists
+                existing_mparts = ManufacturerPart.list(
+                    self.api,
+                    manufacturer=manufacturer_company.pk,
+                    MPN=mpn,
+                )
+
+                if existing_mparts:
+                    mpart = existing_mparts[0]
+                else:
+                    # Create manufacturer part
+                    manufacturer_part_data = {
+                        "part": int(part.pk),
+                        "manufacturer": int(manufacturer_company.pk),
+                        "MPN": mpn,
+                        "description": part_description,
+                    }
+                    mpart = ManufacturerPart.create(self.api, data=manufacturer_part_data)
+
+            # Create supplier part if supplier info is available
+            supplier_part = None
+            if spn and supplier:
+                # Get or create supplier
+                supplier_company = self.get_or_create_supplier(supplier)
+
+                # Check if supplier part already exists
+                existing_sparts = SupplierPart.list(
+                    self.api,
+                    part=part.pk,
+                    supplier=supplier_company.pk,
+                    SKU=spn,
+                )
+
+                if existing_sparts:
+                    supplier_part = existing_sparts[0]
+                else:
+                    # Create supplier part
+                    supplier_part_data = {
+                        "active": True,
+                        "part": part.pk,
+                        "supplier": supplier_company.pk,
+                        "SKU": spn,
+                        "description": part_description,
+                    }
+
+                    # Link to manufacturer part if available
+                    if mpart:
+                        supplier_part_data["manufacturer_part"] = mpart.pk
+                        supplier_part_data["MPN"] = mpn
+
+                    supplier_part = SupplierPart.create(self.api, data=supplier_part_data)
+
+            return part, supplier_part
+
+        except Exception as e:
+            print(f"Error creating part from BOM data: {e}")
+            return None
+
     def create_assembly_part(self, part_number: str) -> Optional[dict]:
         """
         Create an assembly part in InvenTree
@@ -409,7 +523,7 @@ class InvenTreeClient:
             bom_data = {
                 "part": assembly_part_id,
                 "sub_part": sub_part_id,
-                "quantity": quantity,
+                "quantity": quantity if quantity > 0 else 1,
             }
 
             if reference:

@@ -248,6 +248,7 @@ def bom(
                 supplier = row.get("Supplier") or row.get("Supplier Name", "").strip()
                 spn = row.get("SPN") or row.get("SKU", "").strip()
                 mpn = row.get("MPN") or row.get("Manufacturer Part Number", "").strip()
+                manufacturer = row.get("Manufacturer") or row.get("Manufacturer Name", "").strip()
                 qty = row.get("Qty") or row.get("Quantity", "1").strip()
                 designators = row.get("Designators", "").strip()
 
@@ -267,6 +268,7 @@ def bom(
                         "supplier": supplier,
                         "spn": spn,
                         "mpn": mpn,
+                        "manufacturer": manufacturer,
                         "quantity": quantity,
                         "designators": designators,
                         "row": row_num,
@@ -307,16 +309,32 @@ def bom(
                             f"\n[{idx}/{len(bom_items)}] Processing: {part_number_to_sync}"
                         )
 
-                    # Sync the component part
+                    # Try to sync the component part from supplier APIs first
                     result = service.sync_part(part_number_to_sync, supplier_name)
 
                     if not result:
-                        progress.console.print(
-                            f"  ❌ Part not found: {part_number_to_sync}", style="red"
+                        # If supplier API lookup fails, try to create from BOM data
+                        # This allows parts from any manufacturer/supplier to be created
+                        if verbose:
+                            progress.console.print(
+                                f"  ℹ️  Not found via supplier API, creating from BOM data"
+                            )
+
+                        result = service.create_part_from_bom(
+                            mpn=item["mpn"],
+                            spn=item["spn"],
+                            manufacturer=item["manufacturer"],
+                            supplier=item["supplier"],
+                            description=None,  # Could add description column to BOM if needed
                         )
-                        error_count += 1
-                        progress.update(task, advance=1)
-                        continue
+
+                        if not result:
+                            progress.console.print(
+                                f"  ❌ Failed to create part: {part_number_to_sync}", style="red"
+                            )
+                            error_count += 1
+                            progress.update(task, advance=1)
+                            continue
 
                     # Add to BOM
                     bom_result = service.add_bom_item(
