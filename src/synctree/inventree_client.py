@@ -171,13 +171,13 @@ class InvenTreeClient:
         if part_info.category:
             category = self.get_or_create_category(part_info.category)
 
-        # Search for existing part by name
+        # Search for existing part by manufacturer part number
         parts = Part.list(
-            self.api, name=part_info.name, category=category.pk if category else None
+            self.api, IPN=part_info.manufacturer_part_number, category=category.pk if category else None
         )
 
-        if parts and (part_info.name in [p.name for p in parts]):
-            part = next(p for p in parts if p.name == part_info.name)
+        if parts:
+            part = parts[0]
 
             # Check if existing part needs an image
             if part_info.image_url:
@@ -187,6 +187,7 @@ class InvenTreeClient:
 
         # Create new part
         part_data = {
+            "IPN": part_info.manufacturer_part_number,
             "name": part_info.name,
             "description": part_info.description,
             "component": True,
