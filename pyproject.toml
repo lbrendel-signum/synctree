@@ -15,6 +15,7 @@ dependencies = [
     "digikey-api",
     "mouser",
     "rich>=13.0.0",
+    "validators>=0.35.0",
 ]
 
 [project.scripts]

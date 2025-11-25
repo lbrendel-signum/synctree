@@ -9,7 +9,7 @@ from pathlib import Path
 import random
 import string
 from typing import Optional
-from urllib.parse import quote
+import validators
 
 from inventree.api import InvenTreeAPI
 from inventree.company import (
@@ -224,13 +224,20 @@ class InvenTreeClient:
         if existing:
             return existing[0]
 
+
+        link_url = None
+        if part_info.datasheet_url:
+            validate = validators.url(part_info.datasheet_url)
+            if validate:
+                link_url = part_info.datasheet_url
+
         # Create manufacturer part
         manufacturer_part_data = {
             "part": int(part.pk),
             "manufacturer": int(manufacturer.pk),
             "MPN": part_info.manufacturer_part_number,
             "description": part_info.description,
-            "link": part_info.datasheet_url or "",
+            "link": link_url,
             "note": f"Synced from {part_info.supplier_name}",
         }
 
