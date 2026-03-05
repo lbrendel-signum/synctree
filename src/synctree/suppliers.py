@@ -18,6 +18,7 @@ from .config import DigikeyConfig, MouserConfig
 @dataclass
 class PartInfo:
     """Standardized part information from suppliers"""
+
     name: str
     manufacturer_name: str
     manufacturer_part_number: str
@@ -67,8 +68,9 @@ class DigikeyClient(SupplierClient):
         try:
             # Try direct product details first (works best with Digikey part numbers)
             part = digikey.product_details(part_number)
+            # media = digikey.product_media(part_number)
 
-            if part and hasattr(part, 'product'):
+            if part and hasattr(part, "product"):
                 return self._convert_to_part_info(part.product)
 
         except Exception as e:
@@ -77,12 +79,13 @@ class DigikeyClient(SupplierClient):
                 search_request = KeywordRequest(keywords=part_number, limit=1, offset=0)
                 result = digikey.keyword_search(body=search_request)
 
-
-                if result and hasattr(result, 'products') and len(result.products) > 0:
+                if result and hasattr(result, "products") and len(result.products) > 0:
                     # Get detailed info for the first result
                     first_product = result.products[0]
-                    if hasattr(first_product, 'digi_key_part_number'):
-                        part = digikey.product_details(first_product.digi_key_part_number)
+                    if hasattr(first_product, "digi_key_part_number"):
+                        part = digikey.product_details(
+                            first_product.digi_key_part_number
+                        )
                         return self._convert_to_part_info(part)
             except Exception:
                 pass
@@ -94,36 +97,61 @@ class DigikeyClient(SupplierClient):
         # Extract pricing information
         pricing = {}
         parameters = {}
-        if hasattr(part, 'parameters') and part.parameters:
+        if hasattr(part, "parameters") and part.parameters:
             for param in part.parameters:
-                if hasattr(param, 'parameter_text') and hasattr(param, 'value_text'):
+                if hasattr(param, "parameter_text") and hasattr(param, "value_text"):
                     parameters[param.parameter_text] = param.value_text
-        if hasattr(part, 'product_variations') and part.product_variations:
+        if hasattr(part, "product_variations") and part.product_variations:
             for price in part.product_variations[0].standard_pricing:
-                if hasattr(price, 'break_quantity') and hasattr(price, 'unit_price'):
+                if hasattr(price, "break_quantity") and hasattr(price, "unit_price"):
                     pricing[price.break_quantity] = price.unit_price
         if hasattr(part, "unit_price") and part.unit_price:
             pricing[1] = part.unit_price
 
-        datasheet = part.datasheet_url if hasattr(part, 'datasheet_url') else None
+        datasheet = part.datasheet_url if hasattr(part, "datasheet_url") else None
         if datasheet:
-            datasheet = f"https://{datasheet[2:]}" if datasheet and datasheet.startswith("//") else datasheet
+            datasheet = (
+                f"https://{datasheet[2:]}"
+                if datasheet and datasheet.startswith("//")
+                else datasheet
+            )
+
+        if hasattr(part, "description"):
+            if (
+                hasattr(part.description, "detailed_description")
+                and part.description.detailed_description
+            ):
+                description = part.description.detailed_description
+            else:
+                description = ""
+        else:
+            description = ""
 
         return PartInfo(
-            name=part.description.product_description if hasattr(part, 'description') else "",
-            manufacturer_name=part.manufacturer.name if hasattr(part, 'manufacturer') else "",
-            manufacturer_part_number=part.manufacturer_product_number if hasattr(part, 'manufacturer_product_number') else "",
+            name=part.description.product_description
+            if hasattr(part, "description")
+            else "",
+            manufacturer_name=part.manufacturer.name
+            if hasattr(part, "manufacturer")
+            else "",
+            manufacturer_part_number=part.manufacturer_product_number
+            if hasattr(part, "manufacturer_product_number")
+            else "",
             supplier_name="Digikey",
-            supplier_part_number=part.product_variations[0].digi_key_product_number if hasattr(part, 'product_variations') and part.product_variations else "",
-            description=part.description.detailed_description[:250] if hasattr(part, 'description') else "",
+            supplier_part_number=part.product_variations[0].digi_key_product_number
+            if hasattr(part, "product_variations") and part.product_variations
+            else "",
+            description=description[:250],
             datasheet_url=datasheet,
-            image_url=part.photo_url if hasattr(part, 'photo_url') else None,
-            category=part.category.child_categories[0].name if hasattr(part, 'category') else None,
-            packaging=part.packaging.value if hasattr(part, 'packaging') else None,
+            image_url=part.photo_url if hasattr(part, "photo_url") else None,
+            category=part.category.child_categories[0].name
+            if hasattr(part, "category")
+            else None,
+            packaging=part.packaging.value if hasattr(part, "packaging") else None,
             pricing=pricing if pricing else None,
-            url=part.product_url if hasattr(part, 'product_url') else None,
+            url=part.product_url if hasattr(part, "product_url") else None,
             parameters=parameters if parameters else None,
-            is_active=not (part.discontinued or part.end_of_life)
+            is_active=not (part.discontinued or part.end_of_life),
         )
 
 
@@ -138,15 +166,15 @@ class MouserClient(SupplierClient):
     def get_part_info(self, part_number: str) -> Optional[PartInfo]:
         """Get part information from Mouser"""
         try:
-            request = MouserPartSearchRequest()
+            request = MouserPartSearchRequest(operation="partnumber")
             result = request.part_search(part_number)
 
-            if result and hasattr(result, 'Parts') and len(result.Parts) > 0:
+            if result and hasattr(result, "Parts") and len(result.Parts) > 0:
                 part = result.Parts[0]
                 return self._convert_to_part_info(part)
 
-        except Exception:
-            pass
+        except Exception as e:
+            raise e
 
         return None
 
@@ -154,26 +182,36 @@ class MouserClient(SupplierClient):
         """Convert Mouser API response to PartInfo"""
         # Extract pricing information
         pricing = {}
-        if hasattr(part, 'PriceBreaks') and part.PriceBreaks:
+        if hasattr(part, "PriceBreaks") and part.PriceBreaks:
             for price_break in part.PriceBreaks:
-                if hasattr(price_break, 'Quantity') and hasattr(price_break, 'Price'):
+                if hasattr(price_break, "Quantity") and hasattr(price_break, "Price"):
                     # Remove currency symbols and convert to float
-                    price_str = price_break.Price.replace('$', '').replace(',', '')
+                    price_str = price_break.Price.replace("$", "").replace(",", "")
                     try:
                         pricing[int(price_break.Quantity)] = float(price_str)
                     except (ValueError, AttributeError):
                         pass
 
         return PartInfo(
-            manufacturer_name=part.Manufacturer if hasattr(part, 'Manufacturer') else "",
-            manufacturer_part_number=part.ManufacturerPartNumber if hasattr(part, 'ManufacturerPartNumber') else "",
+            manufacturer_name=part.Manufacturer
+            if hasattr(part, "Manufacturer")
+            else "",
+            manufacturer_part_number=part.ManufacturerPartNumber
+            if hasattr(part, "ManufacturerPartNumber")
+            else "",
             supplier_name="Mouser",
-            supplier_part_number=part.MouserPartNumber if hasattr(part, 'MouserPartNumber') else "",
-            description=part.Description if hasattr(part, 'Description') else "",
-            datasheet_url=part.DataSheetUrl if hasattr(part, 'DataSheetUrl') else None,
-            image_url=part.ImagePath if hasattr(part, 'ImagePath') else None,
-            category=part.Category if hasattr(part, 'Category') else None,
-            packaging=part.ProductDetailUrl if hasattr(part, 'ProductDetailUrl') else None,
-            stock=int(part.AvailabilityInStock) if hasattr(part, 'AvailabilityInStock') else None,
-            pricing=pricing if pricing else None
+            supplier_part_number=part.MouserPartNumber
+            if hasattr(part, "MouserPartNumber")
+            else "",
+            description=part.Description if hasattr(part, "Description") else "",
+            datasheet_url=part.DataSheetUrl if hasattr(part, "DataSheetUrl") else None,
+            image_url=part.ImagePath if hasattr(part, "ImagePath") else None,
+            category=part.Category if hasattr(part, "Category") else None,
+            packaging=part.ProductDetailUrl
+            if hasattr(part, "ProductDetailUrl")
+            else None,
+            stock=int(part.AvailabilityInStock)
+            if hasattr(part, "AvailabilityInStock")
+            else None,
+            pricing=pricing if pricing else None,
         )

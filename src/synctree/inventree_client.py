@@ -2,15 +2,16 @@
 InvenTree API client wrapper
 """
 
-from datetime import datetime
-import requests
 import os
-from pathlib import Path
 import random
 import string
+import time
+from datetime import datetime, timezone
+from pathlib import Path
 from typing import Optional
-import validators
 
+import requests
+import validators
 from inventree.api import InvenTreeAPI
 from inventree.company import (
     Company,
@@ -19,7 +20,7 @@ from inventree.company import (
     SupplierPart,
     SupplierPriceBreak,
 )
-from inventree.part import Part, PartCategory, BomItem
+from inventree.part import BomItem, Part, PartCategory
 
 from .config import InvenTreeConfig
 from .suppliers import PartInfo
@@ -28,38 +29,37 @@ from .suppliers import PartInfo
 class ImageManager:
     cache_path: Path = Path(__file__).resolve().parent / "cache"
 
-    @classmethod
-    def get_image(cls, url: str) -> str:
+    _last_request_time: Optional[datetime] = None
+    _request_interval_seconds: float = 60.0  # Minimum interval between requests
+
+    def get_image(self, url: str) -> str:
         """
         Gets an image given an url
         returns a filepath
         """
-        if not cls.cache_active():
+        if not self.cache_active():
             print("Cache not active creating...")
-            cls._create_cache()
+            self._create_cache()
 
-        path = cls._download_image(url)
+        path = self.download_image(url=url)
         return path
 
-    @classmethod
-    def cache_active(cls):
-        return os.path.exists(cls.cache_path)
+    def cache_active(self):
+        return os.path.exists(self.cache_path)
 
-    @classmethod
-    def _create_cache(cls):
+    def _create_cache(self):
         try:
-            print(f"Making cache at {cls.cache_path}")
-            os.mkdir(cls.cache_path)
+            print(f"Making cache at {self.cache_path}")
+            os.mkdir(self.cache_path)
         except:
             print("Error making cache")
 
-    @classmethod
-    def clean_cache(cls):
-        if cls.cache_active:
-            for f in Path(cls.cache_path).glob("*"):
+    def clean_cache(self):
+        if self.cache_active():
+            for f in Path(self.cache_path).glob("*"):
                 f.unlink()
 
-    def _filename_generator(size=6) -> str:
+    def _filename_generator(self, size=6) -> str:
         return (
             "".join(
                 random.choice(string.ascii_lowercase + string.digits)
@@ -68,22 +68,44 @@ class ImageManager:
             + ".jpg"
         )
 
-    @classmethod
-    def _download_image(cls, url: str) -> str:
+    def download_image(self, url: str) -> str:
         print(f"Trying URL {url}")
 
         # escaped_url = quote(url, safe=":/")
 
-        # Send an HTTP GET request with custom headers
-        response = requests.get(url)
+        if self._last_request_time:
+            elapsed = (datetime.now() - self._last_request_time).total_seconds()
+            if elapsed < self._request_interval_seconds:
+                wait_time = self._request_interval_seconds - elapsed
+                print(f"Waiting {wait_time:.2f} seconds before next request...")
+                time.sleep(wait_time)
 
-        if not response.status_code == 200:
+        session = requests.Session()
+        session.headers.update(
+            {
+                "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
+                "Connection": "keep-alive",
+                "Accept-Language": "en-US,en;q=0.5",
+                "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:146.0) Gecko/20100101 Firefox/146.0",
+                "Sec-Fetch-Dest": "document",
+                "Sec-Fetch-Mode": "navigate",
+                "Sec-Fetch-Site": "none",
+                "Sec-GPC": "1",
+                "Upgrade-Insecure-Requests": "1",
+            }
+        )
+        session.get("https://www.digikey.com")  # Initial request to set cookies
+        response = session.get(url)
+
+        self._last_request_time = datetime.now()
+
+        if response.status_code != 200:
             print(f"ERROR: Request code is {response.status_code}")
             return None
 
-        filename = cls._filename_generator()
+        filename = self._filename_generator()
 
-        filepath = cls.cache_path / filename
+        filepath = self.cache_path / filename
         with open(filepath, "wb") as handler:
             handler.write(response.content)
 
@@ -92,6 +114,8 @@ class ImageManager:
 
 class InvenTreeClient:
     """Client for interacting with InvenTree API"""
+
+    img: ImageManager = ImageManager()
 
     def __init__(self, config: InvenTreeConfig):
         self.config = config
@@ -173,7 +197,9 @@ class InvenTreeClient:
 
         # Search for existing part by manufacturer part number
         parts = Part.list(
-            self.api, IPN=part_info.manufacturer_part_number, category=category.pk if category else None
+            self.api,
+            IPN=part_info.manufacturer_part_number,
+            category=category.pk if category else None,
         )
 
         if parts:
@@ -223,7 +249,6 @@ class InvenTreeClient:
 
         if existing:
             return existing[0]
-
 
         link_url = None
         if part_info.datasheet_url:
@@ -405,7 +430,9 @@ class InvenTreeClient:
                         "MPN": mpn,
                         "description": part_description,
                     }
-                    mpart = ManufacturerPart.create(self.api, data=manufacturer_part_data)
+                    mpart = ManufacturerPart.create(
+                        self.api, data=manufacturer_part_data
+                    )
 
             # Create supplier part if supplier info is available
             supplier_part = None
@@ -438,7 +465,9 @@ class InvenTreeClient:
                         supplier_part_data["manufacturer_part"] = mpart.pk
                         supplier_part_data["MPN"] = mpn
 
-                    supplier_part = SupplierPart.create(self.api, data=supplier_part_data)
+                    supplier_part = SupplierPart.create(
+                        self.api, data=supplier_part_data
+                    )
 
             return part, supplier_part
 
@@ -517,7 +546,11 @@ class InvenTreeClient:
                 self.api, part=assembly_part_id, sub_part=sub_part_id
             )
 
-            if existing and any(True for item in existing if item.part == assembly_part_id and item.sub_part == sub_part_id):
+            if existing and any(
+                True
+                for item in existing
+                if item.part == assembly_part_id and item.sub_part == sub_part_id
+            ):
                 # Update existing BOM item
                 bom_item = next(
                     item
@@ -571,7 +604,7 @@ class InvenTreeClient:
             result = []
             for sp in supplier_parts:
                 # Get supplier details
-                supplier_data = sp._data if hasattr(sp, '_data') else {}
+                supplier_data = sp._data if hasattr(sp, "_data") else {}
                 result.append(supplier_data)
 
             return result
@@ -595,25 +628,20 @@ class InvenTreeClient:
             supplier_part = SupplierPart(self.api, pk=supplier_part_id)
 
             # Update active status
-            supplier_part.save(data={
-                'active': part_info.is_active
-            })
+            supplier_part.save(data={"active": part_info.is_active})
 
             # Update pricing if available
             if part_info.pricing:
                 # Delete existing price breaks
                 existing_prices = SupplierPriceBreak.list(
-                    self.api,
-                    part=supplier_part_id
+                    self.api, part=supplier_part_id
                 )
                 for price in existing_prices:
                     price.delete()
 
                 # Add new price breaks
                 supplier = Company.list(
-                    self.api,
-                    name=part_info.supplier_name,
-                    is_supplier=True
+                    self.api, name=part_info.supplier_name, is_supplier=True
                 )[0]
 
                 for qty, price in part_info.pricing.items():
@@ -650,13 +678,13 @@ class InvenTreeClient:
 
             # Check if part already has an image
             # The image field in InvenTree is typically stored as 'image'
-            if hasattr(part, 'image') and part.image:
+            if hasattr(part, "image") and part.image:
                 # Part already has an image
                 return False
 
             # No image, so download and upload it
             if image_url:
-                image_path = ImageManager.get_image(image_url)
+                image_path = self.img.get_image(image_url)
                 if image_path:
                     part.uploadImage(image_path)
                     return True
@@ -665,3 +693,23 @@ class InvenTreeClient:
         except Exception as e:
             print(f"Error checking/uploading part image: {e}")
             return False
+
+    def is_update_needed(self, pk: int, spk: int) -> bool:
+        """
+        Check if a part needs updating based on last updated timestamp
+
+        Args:
+            pk: Part ID to check
+
+        """
+        part = Part(self.api, pk=pk)
+        if not hasattr(part, "image") or not part.image:
+            return True
+        pricing = SupplierPriceBreak.list(self.api, part=spk)
+        for price in pricing:
+            last_updated = datetime.strptime(price.updated, "%Y-%m-%d %H:%M")
+            last_updated = last_updated.replace(tzinfo=timezone.utc)
+            elapsed = (datetime.now(timezone.utc) - last_updated).days
+            if elapsed > 14:
+                return True
+        return False

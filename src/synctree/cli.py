@@ -317,7 +317,7 @@ def bom(
                         # This allows parts from any manufacturer/supplier to be created
                         if verbose:
                             progress.console.print(
-                                f"  ℹ️  Not found via supplier API, creating from BOM data"
+                                "  ℹ️  Not found via supplier API, creating from BOM data"
                             )
 
                         result = service.create_part_from_bom(

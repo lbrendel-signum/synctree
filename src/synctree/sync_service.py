@@ -2,12 +2,14 @@
 Part synchronization service
 """
 
+from datetime import datetime, timezone
 from typing import Optional
 
 from .config import Config
 from .inventree_client import InvenTreeClient
 from .suppliers import DigikeyClient, MouserClient, PartInfo, SupplierClient
 from inventree.company import SupplierPriceBreak
+from inventree.part import Part
 
 class SyncService:
     """Service for synchronizing parts from suppliers to InvenTree"""
@@ -106,17 +108,17 @@ class SyncService:
     ) -> Optional[dict]:
         """
         Create a part from BOM data without querying supplier APIs
-        
+
         This allows creating parts from any manufacturer/supplier, not just
         built-in suppliers (Digikey/Mouser).
-        
+
         Args:
             mpn: Manufacturer part number
             spn: Supplier part number
             manufacturer: Manufacturer name
             supplier: Supplier name
             description: Part description
-            
+
         Returns:
             Dictionary with part info or None if failed
         """
@@ -127,12 +129,12 @@ class SyncService:
             supplier=supplier,
             description=description,
         )
-        
+
         if not result:
             return None
-        
+
         part, supplier_part = result
-        
+
         return {
             "success": True,
             "supplier": supplier if supplier else "N/A",
@@ -193,18 +195,22 @@ class SyncService:
         # Get all supplier parts from InvenTree
         supplier_parts = self.inventree.get_all_supplier_parts(supplier_name)
 
-        for inventree_supplier_part in supplier_parts:
+        for part in supplier_parts:
             try:
                 # Get the supplier company name
-                supplier_company = inventree_supplier_part.get('supplier_detail', {}).get('name', '').lower()
+                supplier_company = part.get('supplier_detail', {}).get('name', '').lower()
 
                 # Skip if not in configured suppliers
                 if supplier_company not in self.suppliers:
                     continue
 
                 # Get supplier part number
-                sku = inventree_supplier_part.get('SKU', '')
+                sku = part.get('SKU', '')
                 if not sku:
+                    continue
+
+                if not self.inventree.is_update_needed(part["part"], part["pk"]):
+                    print(f"Part {sku} up to date")
                     continue
 
                 # Query the supplier API
@@ -216,16 +222,16 @@ class SyncService:
                         'sku': sku,
                         'supplier': supplier_company,
                         'status': 'not_found',
-                        'inventree_id': inventree_supplier_part.get('pk'),
+                        'inventree_id': part.get('pk'),
                         'message': 'Part not found in supplier system'
                     }
                     continue
 
                 # Compare data
-                changes = self._compare_supplier_part_data(inventree_supplier_part, part_info)
-                
+                changes = self._compare_supplier_part_data(part, part_info)
+
                 # Check if part image needs to be uploaded
-                part_id = inventree_supplier_part.get('part')
+                part_id = part.get('part')
                 if part_id and part_info.image_url:
                     image_uploaded = self.inventree.check_and_upload_part_image(
                         part_id,
@@ -238,7 +244,7 @@ class SyncService:
                 if changes:
                     # Update InvenTree with new data
                     updated = self.inventree.update_supplier_part(
-                        inventree_supplier_part.get('pk'),
+                        part.get('pk'),
                         part_info
                     )
 
@@ -246,7 +252,7 @@ class SyncService:
                         'sku': sku,
                         'supplier': supplier_company,
                         'status': 'updated' if updated else 'update_failed',
-                        'inventree_id': inventree_supplier_part.get('pk'),
+                        'inventree_id': part.get('pk'),
                         'changes': changes,
                         'message': f"Updated {len(changes)} fields"
                     }
@@ -255,16 +261,16 @@ class SyncService:
                         'sku': sku,
                         'supplier': supplier_company,
                         'status': 'up_to_date',
-                        'inventree_id': inventree_supplier_part.get('pk'),
+                        'inventree_id': part.get('pk'),
                         'message': 'No changes needed'
                     }
 
             except Exception as e:
                 yield {
-                    'sku': inventree_supplier_part.get('SKU', 'unknown'),
+                    'sku': part.get('SKU', 'unknown'),
                     'supplier': supplier_company if 'supplier_company' in locals() else 'unknown',
                     'status': 'error',
-                    'inventree_id': inventree_supplier_part.get('pk'),
+                    'inventree_id': part.get('pk'),
                     'message': str(e)
                 }
 
@@ -294,6 +300,8 @@ class SyncService:
                     'old': len(inventree_prices),
                     'new': len(supplier_info.pricing)
                 }
+                changes["date"] = {"old": inventree_prices[0].updated if inventree_prices else "none",
+                                   "new": datetime.now().strftime("%Y-%m-%d %H:%M")}
 
         return changes
 
@@ -301,6 +309,13 @@ class SyncService:
         """Check if pricing data differs between InvenTree and supplier"""
         if len(inventree_prices) != len(supplier_pricing):
             return True
+
+        oldest_price: datetime = min(inventree_prices, key=lambda x: datetime.strptime(x.updated, "%Y-%m-%d %H:%M"))
+        oldest_price = datetime.strptime(oldest_price.updated, "%Y-%m-%d %H:%M")
+        oldest = oldest_price.replace(tzinfo=timezone.utc)
+        elapsed = (datetime.now(timezone.utc) - oldest).days
+        if elapsed > 14:
+            return True # Price data is stale
 
         # Create a dict from inventree prices for comparison
         inventree_price_dict = {}
