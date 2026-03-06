@@ -8,8 +8,7 @@ from typing import Optional
 from .config import Config
 from .inventree_client import InvenTreeClient
 from .suppliers import DigikeyClient, MouserClient, PartInfo, SupplierClient
-from inventree.company import SupplierPriceBreak
-from inventree.part import Part
+from inventree.company import SupplierPriceBreak, Company
 
 class SyncService:
     """Service for synchronizing parts from suppliers to InvenTree"""
@@ -198,10 +197,10 @@ class SyncService:
         for part in supplier_parts:
             try:
                 # Get the supplier company name
-                supplier_company = part.get('supplier_detail', {}).get('name', '').lower()
-
+                supplier_company = next(company for company in Company.list(self.inventree.api, pk=part["supplier"], is_supplier=True) if company.pk == part["supplier"])
+                supplier_name = supplier_company["name"].lower()
                 # Skip if not in configured suppliers
-                if supplier_company not in self.suppliers:
+                if supplier_name not in self.suppliers:
                     continue
 
                 # Get supplier part number
@@ -214,13 +213,13 @@ class SyncService:
                     continue
 
                 # Query the supplier API
-                supplier_client = self.suppliers[supplier_company]
+                supplier_client = self.suppliers[supplier_name]
                 part_info = supplier_client.get_part_info(sku)
 
                 if not part_info:
                     yield {
                         'sku': sku,
-                        'supplier': supplier_company,
+                        'supplier': supplier_name,
                         'status': 'not_found',
                         'inventree_id': part.get('pk'),
                         'message': 'Part not found in supplier system'
@@ -250,7 +249,7 @@ class SyncService:
 
                     yield {
                         'sku': sku,
-                        'supplier': supplier_company,
+                        'supplier': supplier_name,
                         'status': 'updated' if updated else 'update_failed',
                         'inventree_id': part.get('pk'),
                         'changes': changes,
@@ -259,7 +258,7 @@ class SyncService:
                 else:
                     yield {
                         'sku': sku,
-                        'supplier': supplier_company,
+                        'supplier': supplier_name,
                         'status': 'up_to_date',
                         'inventree_id': part.get('pk'),
                         'message': 'No changes needed'
@@ -268,7 +267,7 @@ class SyncService:
             except Exception as e:
                 yield {
                     'sku': part.get('SKU', 'unknown'),
-                    'supplier': supplier_company if 'supplier_company' in locals() else 'unknown',
+                    'supplier': supplier_name if 'supplier_name' in locals() else 'unknown',
                     'status': 'error',
                     'inventree_id': part.get('pk'),
                     'message': str(e)
