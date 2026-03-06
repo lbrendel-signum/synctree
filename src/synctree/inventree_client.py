@@ -12,6 +12,8 @@ from typing import Optional
 
 import requests
 import validators
+from rich.table import Table
+from rich.console import Console
 from inventree.api import InvenTreeAPI
 from inventree.company import (
     Company,
@@ -636,6 +638,11 @@ class InvenTreeClient:
                 existing_prices = SupplierPriceBreak.list(
                     self.api, part=supplier_part_id
                 )
+
+                # Print rich table comparing prices
+                self.print_price_comparison(existing_prices, part_info.pricing)
+
+
                 for price in existing_prices:
                     price.delete()
 
@@ -660,6 +667,29 @@ class InvenTreeClient:
         except Exception as e:
             print(f"Error updating supplier part: {e}")
             return False
+
+    def print_price_comparison(self, existing_prices, new_pricing):
+        """
+        Print a rich table comparing supplier quantity, existing price, and new price from part_info.pricing
+        """
+        print("\n")
+        table = Table(title="Supplier Price Comparison")
+        table.add_column("Quantity", justify="right")
+        table.add_column("Existing Price", justify="right")
+        table.add_column("New Price", justify="right")
+
+        # Build a dict for existing prices for quick lookup
+        existing_price_dict = {getattr(p, 'quantity', None): getattr(p, 'price', None) for p in existing_prices}
+
+        # Get all unique quantities
+        all_quantities = set(existing_price_dict.keys()) | set(new_pricing.keys())
+        for qty in sorted(all_quantities, key=lambda x: (x is None, x)):
+            old_price = existing_price_dict.get(qty, "-")
+            new_price = new_pricing.get(qty, "-")
+            table.add_row(str(qty), str(old_price), str(new_price))
+
+        console = Console()
+        console.print(table)
 
     def check_and_upload_part_image(self, part_id: int, image_url: str) -> bool:
         """
