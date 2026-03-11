@@ -24,6 +24,19 @@
                 "sync",
                 "-v",
             ]
+        },
+        {
+            "name": "Add Digikey",
+            "type": "debugpy",
+            "request": "launch",
+            "module": "synctree.cli",
+            "console": "integratedTerminal",
+            "justMyCode": false,
+            "args": [
+                "add",
+                "-s",
+                "digikey",
+            ]
         }
     ]
 }
