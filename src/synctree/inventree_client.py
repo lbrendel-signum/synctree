@@ -229,7 +229,8 @@ class InvenTreeClient:
         part = Part.create(self.api, data=part_data)
 
         if part_info.image_url:
-            image_path = ImageManager.get_image(part_info.image_url)
+            mgr = ImageManager()
+            image_path = mgr.get_image(url=part_info.image_url)
             if image_path:
                 part.uploadImage(image_path)
 
