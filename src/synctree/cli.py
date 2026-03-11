@@ -50,8 +50,9 @@ def main(
 def add(
     part_number: Annotated[
         str,
-        typer.Argument(
-            help="Part number to add (manufacturer or supplier part number)"
+        typer.Option(
+            help="Part number to add (manufacturer or supplier part number)",
+            prompt=True
         ),
     ],
     supplier: Annotated[
