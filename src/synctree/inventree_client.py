@@ -18,12 +18,11 @@ from inventree.api import InvenTreeAPI
 from inventree.company import (
     Company,
     ManufacturerPart,
-    ManufacturerPartParameter,
     SupplierPart,
     SupplierPriceBreak,
 )
 from inventree.part import BomItem, Part, PartCategory
-
+from inventree.base import ParameterTemplate, Parameter
 from .config import InvenTreeConfig
 from .suppliers import PartInfo
 
@@ -236,6 +235,33 @@ class InvenTreeClient:
 
         return part
 
+    def add_part_parameters(self, part: Part | dict, part_info: PartInfo):
+        """Add parameters to a part"""
+        for name, value in part_info.parameters.items():
+            # Get or create parameter template
+            templates = ParameterTemplate.list(self.api, name=name)
+            if templates:
+                template = templates[0]
+            else:
+                template = ParameterTemplate.create(
+                    self.api, data={"name": name}
+                )
+            pk = part.pk if isinstance(part, Part) else part.get("part")
+            params = Part(self.api, pk=pk).getParameters()
+
+            if not any(p.template == template.pk for p in params):
+                # Create parameter for the part
+                print("Adding parameter", name, "=", value, "to part", pk)
+                Parameter.create(
+                    self.api,
+                    data={
+                        "model_type": "part",
+                        "model_id": pk,
+                        "template": template.pk,
+                        "data": value,
+                    },
+                )
+
     def create_manufacturer_part(
         self, part: Part, part_info: PartInfo
     ) -> ManufacturerPart:
@@ -269,20 +295,7 @@ class InvenTreeClient:
             "note": f"Synced from {part_info.supplier_name}",
         }
 
-        mpart = ManufacturerPart.create(self.api, data=manufacturer_part_data)
-
-        if part_info.parameters:
-            for key, value in part_info.parameters.items():
-                ManufacturerPartParameter.create(
-                    self.api,
-                    data={
-                        "manufacturer_part": mpart.pk,
-                        "name": key,
-                        "value": value,
-                    },
-                )
-
-        return mpart
+        return ManufacturerPart.create(self.api, data=manufacturer_part_data)
 
     def create_supplier_part(
         self, part: Part, mpart: ManufacturerPart, part_info: PartInfo
@@ -357,6 +370,10 @@ class InvenTreeClient:
 
         # Create supplier part link
         supplier_part = self.create_supplier_part(part, mpart, part_info)
+
+        # Add part parameters
+        if part_info.parameters:
+            self.add_part_parameters(part, part_info)
 
         return part, supplier_part
 

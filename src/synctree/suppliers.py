@@ -168,9 +168,9 @@ class MouserClient(SupplierClient):
         try:
             request = MouserPartSearchRequest(operation="partnumber")
             result = request.part_search(part_number)
-
-            if result and hasattr(result, "Parts") and len(result.Parts) > 0:
-                part = result.Parts[0]
+            response = request.get_response()
+            if result and hasattr(response, "Parts") and len(response.Parts) > 0:
+                part = response.Parts[0]
                 return self._convert_to_part_info(part)
 
         except Exception as e:

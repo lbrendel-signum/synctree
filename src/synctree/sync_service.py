@@ -75,6 +75,7 @@ class SyncService:
         Returns:
             Dictionary with sync results or None if part not found
         """
+        print(f"Syncing part {part_number} from supplier {supplier if supplier else 'any'}")
         # Get part info from supplier
         result = self.get_part_from_supplier(part_number, supplier)
 
@@ -196,6 +197,7 @@ class SyncService:
 
         for part in supplier_parts:
             try:
+                print(f"Processing part {part.get('SKU', 'unknown')} (ID: {part.get('pk')})")
                 # Get the supplier company name
                 supplier_company = next(company for company in Company.list(self.inventree.api, pk=part["supplier"], is_supplier=True) if company.pk == part["supplier"])
                 supplier_name = supplier_company["name"].lower()
@@ -288,6 +290,8 @@ class SyncService:
                 'old': inventree_part.get('active'),
                 'new': supplier_info.is_active
             }
+
+        self.inventree.add_part_parameters(inventree_part, supplier_info)
 
         # Check pricing (compare latest price breaks)
         if supplier_info.pricing:
